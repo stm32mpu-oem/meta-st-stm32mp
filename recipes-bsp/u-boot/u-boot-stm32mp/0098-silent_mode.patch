@@ -1,0 +1,57 @@
+From 6413661ad709f466d432555a869e683baf2bec57 Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Wed, 28 Sep 2022 10:57:18 +0200
+Subject: [PATCH] Silent mode
+
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ include/configs/stm32mp13_st_common.h | 3 ++-
+ include/configs/stm32mp15_st_common.h | 3 ++-
+ include/configs/stm32mp25_common.h    | 3 ++-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/include/configs/stm32mp13_st_common.h b/include/configs/stm32mp13_st_common.h
+index 41681537a2..49d3398663 100644
+--- a/include/configs/stm32mp13_st_common.h
++++ b/include/configs/stm32mp13_st_common.h
+@@ -10,7 +10,8 @@
+ 
+ #define STM32MP_BOARD_EXTRA_ENV \
+ 	"usb_pgood_delay=1000\0" \
+-	"console=ttySTM0\0"
++	"console=ttySTM0\0" \
++	"silent=1\0"
+ 
+ #include <configs/stm32mp13_common.h>
+ 
+diff --git a/include/configs/stm32mp15_st_common.h b/include/configs/stm32mp15_st_common.h
+index c395f7f986..81865b24ea 100644
+--- a/include/configs/stm32mp15_st_common.h
++++ b/include/configs/stm32mp15_st_common.h
+@@ -10,7 +10,8 @@
+ 
+ #define STM32MP_BOARD_EXTRA_ENV \
+ 	"usb_pgood_delay=1000\0" \
+-	"console=ttySTM0\0"
++	"console=ttySTM0\0" \
++	"silent=1\0"
+ 
+ #include <configs/stm32mp15_common.h>
+ 
+diff --git a/include/configs/stm32mp25_common.h b/include/configs/stm32mp25_common.h
+index 8d2337e030..13a7155de1 100644
+--- a/include/configs/stm32mp25_common.h
++++ b/include/configs/stm32mp25_common.h
+@@ -86,7 +86,8 @@
+ 
+ #ifndef STM32MP_BOARD_EXTRA_ENV
+ #define STM32MP_BOARD_EXTRA_ENV \
+-	"console=ttySTM0\0"
++	"console=ttySTM0\0" \
++	"silent=1\0"
+ #endif
+ 
+ #define STM32MP_EXTRA \
+-- 
+2.25.1
+
