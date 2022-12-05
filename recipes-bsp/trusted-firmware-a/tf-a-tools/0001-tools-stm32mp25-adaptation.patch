@@ -1,0 +1,1164 @@
+From c1dd96261f2a65bcbe16fd21625d5b449852027c Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Mon, 13 Jun 2022 13:34:29 +0200
+Subject: [PATCH] tools: stm32mp25 adaptation
+
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ .commitlintrc.js                             |   2 +-
+ CONTRIBUTING.md                              |  30 ++
+ Makefile                                     |   6 +-
+ plat/st/stm32mp2/include/plat_def_fip_uuid.h |  15 +
+ plat/st/stm32mp2/platform.mk                 | 493 +++++++++++++++++++
+ tools/cert_create/Makefile                   |   4 +-
+ tools/cert_create/include/key.h              |   6 +-
+ tools/cert_create/src/key.c                  |  20 +-
+ tools/cert_create/src/main.c                 |   3 +-
+ tools/encrypt_fw/Makefile                    |   6 +-
+ tools/fiptool/Makefile                       |   6 +-
+ tools/st/plat_fiptool/plat_def_uuid_config.c |  20 +
+ tools/st/plat_fiptool/plat_fiptool.mk        |  25 +
+ tools/stm32image/stm32image.c                | 188 +++++--
+ 14 files changed, 764 insertions(+), 60 deletions(-)
+ create mode 100644 CONTRIBUTING.md
+ create mode 100644 plat/st/stm32mp2/include/plat_def_fip_uuid.h
+ create mode 100644 plat/st/stm32mp2/platform.mk
+ create mode 100644 tools/st/plat_fiptool/plat_def_uuid_config.c
+ create mode 100644 tools/st/plat_fiptool/plat_fiptool.mk
+
+diff --git a/.commitlintrc.js b/.commitlintrc.js
+index 3bd68bb6c..f97048188 100644
+--- a/.commitlintrc.js
++++ b/.commitlintrc.js
+@@ -46,7 +46,7 @@ module.exports = {
+         "change-id-exists": [1, "always", "Change-Id:"], /* Warning */
+         "signed-off-by-exists": [1, "always", "Signed-off-by:"], /* Warning */
+ 
+-        "scope-case": [2, "always", "kebab-case"], /* Error */
++        "scope-case": [2, "always", "lower-case"], /* Error */
+         "scope-enum": [1, "always", scopes] /* Warning */
+     },
+ };
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+new file mode 100644
+index 000000000..3d1bacd78
+--- /dev/null
++++ b/CONTRIBUTING.md
+@@ -0,0 +1,30 @@
++﻿# Contributing guide
++
++This document serves as a checklist before contributing to this repository. It includes links to read up on if topics are unclear to you.
++
++This guide mainly focuses on the proper use of Git.
++
++## 1. Issues
++
++STM32MPU projects do not activate "Github issues" feature for the time being. If you need to report an issue or question about this project deliverables, you can report them using [ ST Support Center ](https://my.st.com/ols#/ols/newrequest)  or  [ ST Community MPU Forum ](https://community.st.com/s/topic/0TO0X0000003u2AWAQ/stm32-mpus).
++
++## 2. Pull Requests
++
++STMicrolectronics is happy to receive contributions from the community, based on an initial Contributor License Agreement (CLA) procedure.
++
++* If you are an individual writing original source code and you are sure **you own the intellectual property**, then you need to sign an Individual CLA (https://cla.st.com).
++* If you work for a company that wants also to allow you to contribute with your work, your company needs to provide a Corporate CLA (https://cla.st.com) mentioning your GitHub account name.
++* If you are not sure that a CLA (Individual or Corporate) has been signed for your GitHub account you can check here (https://cla.st.com).
++
++Please note that:
++* The Corporate CLA will always take precedence over the Individual CLA.
++* One CLA submission is sufficient, for any project proposed by STMicroelectronics.
++
++__How to proceed__
++
++* We recommend to fork the project in your GitHub account to further develop your contribution. Please use the latest commit version.
++* Please, submit one Pull Request for one new feature or proposal. This will ease the analysis and final merge if accepted.
++
++__Note__
++
++Merge will not be done directly in GitHub but it will need first to follow internal integration process before public deliver in a standard release. The Pull request will stay open until it is merged and delivered.
+diff --git a/Makefile b/Makefile
+index 73007b413..b2f5cd13a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1041,6 +1041,7 @@ $(eval $(call assert_booleans,\
+         ENABLE_FEAT_HCX \
+         ENABLE_MPMM \
+         ENABLE_MPMM_FCONF \
++        AARCH32_EXCEPTION_DEBUG \
+ )))
+ 
+ $(eval $(call assert_numerics,\
+@@ -1153,6 +1154,7 @@ $(eval $(call add_defines,\
+         ENABLE_FEAT_HCX \
+         ENABLE_MPMM \
+         ENABLE_MPMM_FCONF \
++        AARCH32_EXCEPTION_DEBUG \
+ )))
+ 
+ ifeq (${SANITIZE_UB},trap)
+@@ -1382,7 +1384,7 @@ checkpatch:		locate-checkpatch
+ certtool: ${CRTTOOL}
+ 
+ ${CRTTOOL}: FORCE
+-	${Q}${MAKE} PLAT=${PLAT} USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} OPENSSL_DIR=${OPENSSL_DIR} CRTTOOL=${CRTTOOL} --no-print-directory -C ${CRTTOOLPATH}
++	${Q}${MAKE} PLAT=${PLAT} USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} CRTTOOL=${CRTTOOL} --no-print-directory -C ${CRTTOOLPATH}
+ 	@${ECHO_BLANK_LINE}
+ 	@echo "Built $@ successfully"
+ 	@${ECHO_BLANK_LINE}
+@@ -1452,7 +1454,7 @@ doc:
+ enctool: ${ENCTOOL}
+ 
+ ${ENCTOOL}: FORCE
+-	${Q}${MAKE} PLAT=${PLAT} BUILD_INFO=0 OPENSSL_DIR=${OPENSSL_DIR} ENCTOOL=${ENCTOOL} --no-print-directory -C ${ENCTOOLPATH}
++	${Q}${MAKE} PLAT=${PLAT} BUILD_INFO=0 ENCTOOL=${ENCTOOL} --no-print-directory -C ${ENCTOOLPATH}
+ 	@${ECHO_BLANK_LINE}
+ 	@echo "Built $@ successfully"
+ 	@${ECHO_BLANK_LINE}
+diff --git a/plat/st/stm32mp2/include/plat_def_fip_uuid.h b/plat/st/stm32mp2/include/plat_def_fip_uuid.h
+new file mode 100644
+index 000000000..677e54c81
+--- /dev/null
++++ b/plat/st/stm32mp2/include/plat_def_fip_uuid.h
+@@ -0,0 +1,15 @@
++/*
++ * Copyright (c) 2021, STMicroelectronics - All Rights Reserved
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#ifndef PLAT_DEF_FIP_UUID_H
++#define PLAT_DEF_FIP_UUID_H
++
++#define UUID_DDR_FW \
++	{{0xb1, 0x12, 0x49, 0xbe}, {0x92, 0xdd}, {0x4b, 0x10}, 0x86, 0x7c, \
++	 {0x2c, 0x6a, 0x4b, 0x47, 0xa7, 0xfb} }
++
++#endif /* PLAT_DEF_FIP_UUID_H */
++
+diff --git a/plat/st/stm32mp2/platform.mk b/plat/st/stm32mp2/platform.mk
+new file mode 100644
+index 000000000..928a852f3
+--- /dev/null
++++ b/plat/st/stm32mp2/platform.mk
+@@ -0,0 +1,493 @@
++#
++# Copyright (c) 2018-2022, ARM Limited and Contributors. All rights reserved.
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++
++BL2_AT_EL3		:=	1
++
++STM32MP_EARLY_CONSOLE	?=	0
++
++# Add specific ST version
++ST_VERSION 		:=	r1.0
++VERSION_STRING		:=	v${VERSION_MAJOR}.${VERSION_MINOR}-${PLAT}-${ST_VERSION}(${BUILD_TYPE}):${BUILD_STRING}
++
++CRASH_REPORTING		:=	1
++ENABLE_PIE		:=	1
++TRUSTED_BOARD_BOOT	?=	0
++
++# Please don't increment this value without good understanding of
++# the monotonic counter
++STM32_TF_VERSION	?=	0
++
++# Enable dynamic memory mapping
++PLAT_XLAT_TABLES_DYNAMIC :=	1
++
++# Default Device tree
++DTB_FILE_NAME		?=	stm32mp257f-ev.dtb
++
++STM32MP25		:=	1
++
++# STM32 image header version v2.0
++STM32_HEADER_VERSION_MAJOR:=	2
++STM32_HEADER_VERSION_MINOR:=	0
++
++# STM32 image header binary type for BL2
++STM32_HEADER_BL2_BINARY_TYPE:=	0x10
++
++TF_CFLAGS		+=	-Wsign-compare
++
++# Number of TF-A copies in the device
++STM32_TF_A_COPIES		:=	2
++STM32_TF_M_COPIES		:=	2
++STM32_BL33_PARTS_NUM		:=	1
++STM32_RUNTIME_PARTS_NUM		:=	3
++PLAT_PARTITION_MAX_ENTRIES	:=	$(shell echo $$(($(STM32_TF_A_COPIES) + \
++							 $(STM32_TF_M_COPIES) + \
++							 $(STM32_BL33_PARTS_NUM) + \
++							 $(STM32_RUNTIME_PARTS_NUM))))
++
++# Boot devices
++STM32MP_EMMC		?=	0
++STM32MP_SDMMC		?=	0
++STM32MP_RAW_NAND	?=	0
++STM32MP_SPI_NAND	?=	0
++STM32MP_SPI_NOR		?=	0
++
++# Serial boot devices
++STM32MP_UART_PROGRAMMER	?=	0
++STM32MP_USB_PROGRAMMER	?=	0
++
++# DDR types
++STM32MP_DDR3_TYPE	?=	0
++STM32MP_DDR4_TYPE	?=	0
++STM32MP_LPDDR4_TYPE	?=	0
++ifeq (${STM32MP_DDR3_TYPE},1)
++DDR_TYPE		:=	ddr3
++endif
++ifeq (${STM32MP_DDR4_TYPE},1)
++DDR_TYPE		:=	ddr4
++endif
++ifeq (${STM32MP_LPDDR4_TYPE},1)
++DDR_TYPE		:=	lpddr4
++endif
++
++# DDR features
++STM32MP_DDR_DUAL_AXI_PORT	:=	1
++STM32MP_DDR_FIP_IO_STORAGE	:=	1
++STM32MP_DDR_SKIP_TRAINING	?=	0
++STM32MP_DDR_EMULATION		?=	0
++STM32MP_DDRSS_GEN		?=	0
++
++ifeq (${STM32MP_DDRSS_GEN},1)
++ifneq ($(findstring palladium,$(DTB_FILE_NAME)),)
++DDR_SUBDIR			:= ddrss_palladium_${DDR_TYPE}
++else
++DDR_SUBDIR			:= ddrss_${DDR_TYPE}
++endif
++endif
++
++ifneq ($(findstring palladium,$(DTB_FILE_NAME)),)
++STM32MP_DDR_SKIP_TRAINING	:= 1
++STM32MP_DDR_EMULATION		:= 1
++STM32MP_DDR_FIP_IO_STORAGE	:= 0
++endif
++
++# Device tree
++BL2_DTSI		:=	stm32mp25-bl2.dtsi
++FDT_SOURCES		:=	$(addprefix ${BUILD_PLAT}/fdts/, $(patsubst %.dtb,%-bl2.dts,$(DTB_FILE_NAME)))
++
++$(eval DTC_V = $(shell $(DTC) -v | awk '{print $$NF}'))
++$(eval DTC_VERSION = $(shell printf "%d" $(shell echo ${DTC_V} | cut -d- -f1 | sed "s/\./0/g")))
++DTC_CPPFLAGS		+=	${INCLUDES}
++DTC_FLAGS		+=	-Wno-unit_address_vs_reg
++ifeq ($(shell test $(DTC_VERSION) -ge 10601; echo $$?),0)
++DTC_FLAGS		+=	-Wno-interrupt_provider
++endif
++
++# Macros and rules to build TF binary
++STM32_TF_ELF_LDFLAGS	:=	--hash-style=gnu --as-needed
++STM32_TF_STM32		:=	$(addprefix ${BUILD_PLAT}/tf-a-, $(patsubst %.dtb,%.stm32,$(DTB_FILE_NAME)))
++STM32_TF_LINKERFILE	:=	${BUILD_PLAT}/${PLAT}.ld
++
++ASFLAGS			+= -DBL2_BIN_PATH=\"${BUILD_PLAT}/bl2.bin\"
++
++# Variables for use with stm32image
++STM32IMAGEPATH		?= tools/stm32image
++STM32IMAGE		?= ${STM32IMAGEPATH}/stm32image${BIN_EXT}
++STM32IMAGE_SRC		:= ${STM32IMAGEPATH}/stm32image.c
++
++FIP_DEPS		+=	dtbs
++STM32MP_HW_CONFIG	:=	${BL33_CFG}
++STM32MP_FW_CONFIG_NAME	:=	$(patsubst %.dtb,%-fw-config.dtb,$(DTB_FILE_NAME))
++STM32MP_FW_CONFIG	:=	${BUILD_PLAT}/fdts/$(STM32MP_FW_CONFIG_NAME)
++ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
++ifeq (${STM32MP_DDRSS_GEN},1)
++STM32MP_DDR_FW_NAME	:=	${DDR_TYPE}_ddrss_pmu_train.bin
++STM32MP_DDR_FW		:=	drivers/st/ddr/${DDR_SUBDIR}/bin/${STM32MP_DDR_FW_NAME}
++else
++STM32MP_DDR_FW_NAME	:=	${DDR_TYPE}_pmu_train.bin
++STM32MP_DDR_FW		:=	drivers/st/ddr/synopsys/firmware/bin/${STM32MP_DDR_FW_NAME}
++endif
++endif
++FDT_SOURCES		+=	$(addprefix fdts/, $(patsubst %.dtb,%.dts,$(STM32MP_FW_CONFIG_NAME)))
++# Add the FW_CONFIG to FIP and specify the same to certtool
++$(eval $(call TOOL_ADD_PAYLOAD,${STM32MP_FW_CONFIG},--fw-config))
++# Add the HW_CONFIG to FIP and specify the same to certtool
++$(eval $(call TOOL_ADD_PAYLOAD,${STM32MP_HW_CONFIG},--hw-config))
++ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
++# Add the FW_DDR to FIP and specify the same to certtool
++$(eval $(call TOOL_ADD_IMG,STM32MP_DDR_FW,--ddr-fw))
++endif
++# Add the build options to pack Trusted OS Extra1 and Trusted OS Extra2 images
++# in the FIP if the platform requires.
++ifneq ($(BL32_EXTRA1),)
++$(eval $(call TOOL_ADD_IMG,BL32_EXTRA1,--tos-fw-extra1,,$(ENCRYPT_BL32)))
++endif
++ifneq ($(BL32_EXTRA2),)
++$(eval $(call TOOL_ADD_IMG,BL32_EXTRA2,--tos-fw-extra2,,$(ENCRYPT_BL32)))
++endif
++
++# Enable flags for C files
++$(eval $(call assert_booleans,\
++	$(sort \
++		CFG_DT \
++		PLAT_XLAT_TABLES_DYNAMIC \
++		STM32MP_DDR_DUAL_AXI_PORT \
++		STM32MP_DDR_FIP_IO_STORAGE \
++		STM32MP_DDR3_TYPE \
++		STM32MP_DDR4_TYPE \
++		STM32MP_EARLY_CONSOLE \
++		STM32MP_EMMC \
++		STM32MP_LPDDR4_TYPE \
++		STM32MP_RAW_NAND \
++		STM32MP_SDMMC \
++		STM32MP_SPI_NAND \
++		STM32MP_SPI_NOR \
++		STM32MP25 \
++)))
++
++$(eval $(call assert_numerics,\
++	$(sort \
++		PLAT_PARTITION_MAX_ENTRIES \
++		STM32_TF_A_COPIES \
++		STM32_TF_VERSION \
++)))
++
++$(eval $(call add_defines,\
++	$(sort \
++		CFG_DT \
++		PLAT_PARTITION_MAX_ENTRIES \
++		PLAT_XLAT_TABLES_DYNAMIC \
++		STM32_TF_A_COPIES \
++		STM32_TF_VERSION \
++		STM32MP_DDR_DUAL_AXI_PORT \
++		STM32MP_DDR_FIP_IO_STORAGE \
++		STM32MP_DDR3_TYPE \
++		STM32MP_DDR4_TYPE \
++		STM32MP_EARLY_CONSOLE \
++		STM32MP_EMMC \
++		STM32MP_LPDDR4_TYPE \
++		STM32MP_RAW_NAND \
++		STM32MP_SDMMC \
++		STM32MP_SPI_NAND \
++		STM32MP_SPI_NOR \
++		STM32MP25 \
++)))
++
++ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
++$(eval $(call add_define,PLAT_TBBR_IMG_DEF))
++$(eval $(call add_define,PLAT_DEF_FIP_UUID))
++endif
++
++ifdef STM32MP_FPGA
++$(eval $(call add_define,STM32MP_FPGA))
++endif
++
++ifdef STM32MP_DDR_SKIP_TRAINING
++$(eval $(call add_define,STM32MP_DDR_SKIP_TRAINING))
++endif
++
++ifdef STM32MP_DDR_EMULATION
++$(eval $(call add_define,STM32MP_DDR_EMULATION))
++endif
++
++ifdef STM32MP_DDRSS_GEN
++$(eval $(call add_define,STM32MP_DDRSS_GEN))
++endif
++
++# Include paths and source files
++PLAT_INCLUDES		:=	-Iplat/st/common/include/
++PLAT_INCLUDES		+=	-Iplat/st/stm32mp2/include/
++ifeq (${STM32MP_DDRSS_GEN},1)
++PLAT_INCLUDES		+=	-Idrivers/st/ddr/${DDR_SUBDIR}/include/
++else
++PLAT_INCLUDES		+=	-Idrivers/st/ddr/synopsys/phyinit/include/
++PLAT_INCLUDES		+=	-Idrivers/st/ddr/synopsys/firmware/include/
++endif
++
++ifeq (${STM32MP_DDR_FIP_IO_STORAGE},1)
++$(shell cp tools/st/plat_fiptool/plat_fiptool.mk ${PLAT_DIR})
++endif
++
++include lib/fconf/fconf.mk
++include lib/libfdt/libfdt.mk
++
++PLAT_BL_COMMON_SOURCES	:=	common/uuid.c						\
++				plat/st/common/stm32mp_common.c				\
++				plat/st/stm32mp2/stm32mp2_private.c
++
++PLAT_BL_COMMON_SOURCES	+=	drivers/regulator/regulator_core.c			\
++				drivers/st/regulator/regulator_fixed.c
++
++PLAT_BL_COMMON_SOURCES	+=	drivers/st/uart/${ARCH}/stm32_console.S
++
++include lib/xlat_tables_v2/xlat_tables.mk
++PLAT_BL_COMMON_SOURCES	+=	${XLAT_TABLES_LIB_SRCS}
++
++PLAT_BL_COMMON_SOURCES	+=	lib/cpus/${ARCH}/cortex_a35.S
++
++PLAT_BL_COMMON_SOURCES	+=	drivers/clk/clk.c					\
++				drivers/delay_timer/delay_timer.c			\
++				drivers/delay_timer/generic_delay_timer.c		\
++				drivers/st/bsec/bsec3.c					\
++				drivers/st/clk/stm32mp_clkfunc.c			\
++				drivers/st/gpio/stm32_gpio.c				\
++				drivers/st/reset/stm32mp2_reset.c			\
++				plat/st/common/stm32mp_dt.c				\
++				plat/st/common/stm32mp_shres_helpers.c			\
++				plat/st/stm32mp2/${ARCH}/stm32mp2_helper.S		\
++				plat/st/stm32mp2/stm32mp2_syscfg.c
++
++PLAT_BL_COMMON_SOURCES	+=	drivers/st/clk/clk-stm32-core.c				\
++				drivers/st/clk/stm32mp2_clk.c				\
++				drivers/st/rng/stm32_rng.c
++
++BL2_SOURCES		+=	${FCONF_SOURCES} ${FCONF_DYN_SOURCES}
++
++BL2_SOURCES		+=	drivers/io/io_fip.c					\
++				plat/st/common/bl2_io_storage.c				\
++				plat/st/common/stm32mp_fconf_io.c			\
++				plat/st/stm32mp2/plat_bl2_mem_params_desc.c		\
++				plat/st/stm32mp2/stm32mp2_fconf_firewall.c
++
++BL2_SOURCES		+=	drivers/io/io_block.c					\
++				drivers/io/io_mtd.c					\
++				drivers/io/io_storage.c					\
++				drivers/st/crypto/stm32_hash.c				\
++				drivers/st/ddr/stm32mp_ddr_test.c			\
++				plat/st/stm32mp2/bl2_plat_setup.c
++
++BL2_SOURCES		+=	drivers/st/rif/stm32mp2_risaf.c
++
++ifeq (${TRUSTED_BOARD_BOOT},1)
++AUTH_SOURCES		:=	drivers/auth/auth_mod.c					\
++				drivers/auth/crypto_mod.c				\
++				drivers/auth/img_parser_mod.c
++
++include drivers/auth/mbedtls/mbedtls_x509.mk
++
++AUTH_SOURCES		+=	drivers/auth/tbbr/tbbr_cot_common.c			\
++				plat/st/common/stm32mp_crypto_lib.c
++
++BL2_SOURCES		+=	$(AUTH_SOURCES)						\
++				plat/st/common/stm32mp_trusted_boot.c
++endif
++
++ifneq ($(filter 1,${STM32MP_EMMC} ${STM32MP_SDMMC}),)
++BL2_SOURCES		+=	drivers/mmc/mmc.c					\
++				drivers/partition/gpt.c					\
++				drivers/partition/partition.c				\
++				drivers/st/io/io_mmc.c					\
++				drivers/st/mmc/stm32_sdmmc2.c
++endif
++
++ifeq (${STM32MP_RAW_NAND},1)
++$(eval $(call add_define_val,NAND_ONFI_DETECT,1))
++BL2_SOURCES		+=	drivers/mtd/nand/raw_nand.c				\
++				drivers/st/fmc/stm32_fmc2_nand.c
++endif
++
++ifeq (${STM32MP_SPI_NAND},1)
++BL2_SOURCES		+=	drivers/mtd/nand/spi_nand.c
++endif
++
++ifeq (${STM32MP_SPI_NOR},1)
++ifneq (${STM32MP_FORCE_MTD_START_OFFSET},)
++$(eval $(call add_define_val,STM32MP_NOR_FIP_OFFSET,${STM32MP_FORCE_MTD_START_OFFSET}))
++$(eval $(call add_define_val,STM32MP_NOR_BASE_OFFSET,${STM32MP_FORCE_MTD_START_OFFSET}))
++endif
++BL2_SOURCES		+=	drivers/mtd/nor/spi_nor.c
++endif
++
++ifneq ($(filter 1,${STM32MP_SPI_NAND} ${STM32MP_SPI_NOR}),)
++BL2_SOURCES		+=	drivers/mtd/spi-mem/spi_mem.c				\
++				drivers/st/spi/stm32_ospi.c
++endif
++
++ifneq ($(filter 1,${STM32MP_RAW_NAND} ${STM32MP_SPI_NAND}),)
++ifneq (${STM32MP_FORCE_MTD_START_OFFSET},)
++$(eval $(call add_define_val,STM32MP_NAND_FIP_OFFSET,${STM32MP_FORCE_MTD_START_OFFSET}))
++$(eval $(call add_define_val,STM32MP_NAND_BASE_OFFSET,${STM32MP_FORCE_MTD_START_OFFSET}))
++endif
++BL2_SOURCES		+=	drivers/mtd/nand/core.c
++endif
++
++ifneq ($(filter 1,${STM32MP_RAW_NAND} ${STM32MP_SPI_NAND} ${STM32MP_SPI_NOR}),)
++BL2_SOURCES		+=	plat/st/stm32mp2/stm32mp2_boot_device.c
++endif
++
++ifneq (${STM32MP_FPGA},1)
++BL2_SOURCES		+=	drivers/st/ddr/stm32mp_ddr.c				\
++				drivers/st/ddr/stm32mp_ram.c				\
++				drivers/st/ddr/stm32mp2_ddr.c				\
++				drivers/st/ddr/stm32mp2_ddr_helpers.c			\
++				drivers/st/ddr/stm32mp2_ram.c
++
++ifeq (${STM32MP_DDRSS_GEN},1)
++BL2_SOURCES		+=	drivers/st/ddr/${DDR_SUBDIR}/src/ddrss_init.c			\
++				drivers/st/ddr/${DDR_SUBDIR}/src/ddrss_methods.c		\
++				drivers/st/ddr/${DDR_SUBDIR}/src/phyv2_init_dmem_load.c		\
++				drivers/st/ddr/${DDR_SUBDIR}/src/phyv2_init_imem_load.c		\
++				drivers/st/ddr/${DDR_SUBDIR}/src/phyv2_init_loadPIE_load.c	\
++				drivers/st/ddr/${DDR_SUBDIR}/src/phyv2_init_PhyConfig_load.c	\
++				drivers/st/ddr/${DDR_SUBDIR}/src/phyv2_init_progCsrSkipTrain.c	\
++				drivers/st/ddr/${DDR_SUBDIR}/src/risaf_config.c			\
++				drivers/st/ddr/${DDR_SUBDIR}/src/sysconf_config.c		\
++				drivers/st/ddr/${DDR_SUBDIR}/src/umctl2_static_config.c		\
++				drivers/st/ddr/${DDR_SUBDIR}/src/uvh.c
++else
++BL2_SOURCES		+=	drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_c_initphyconfig.c			\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_calcmb.c					\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_globals.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_i_loadpieimage.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_initstruct.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_isdbytedisabled.c			\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_loadpieprodcode.c			\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_mapdrvstren.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_reginterface.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_sequence.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_softsetmb.c				\
++				drivers/st/ddr/synopsys/phyinit/usercustom/dwc_ddrphy_phyinit_usercustom_customposttrain.c	\
++				drivers/st/ddr/synopsys/phyinit/usercustom/dwc_ddrphy_phyinit_usercustom_custompretrain.c
++
++ifeq (${STM32MP_DDR_SKIP_TRAINING},1)
++BL2_SOURCES		+=	drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_progcsrskiptrain.c
++else
++BL2_SOURCES		+=	drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_d_loadimem.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_f_loaddmem.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_g_execfw.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_h_readmsgblock.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_storemsgblk.c				\
++				drivers/st/ddr/synopsys/phyinit/src/dwc_ddrphy_phyinit_writeoutmem.c				\
++				drivers/st/ddr/synopsys/phyinit/usercustom/dwc_ddrphy_phyinit_usercustom_h_readmsgblock.c 	\
++				drivers/st/ddr/synopsys/phyinit/usercustom/dwc_ddrphy_phyinit_usercustom_g_waitfwdone.c
++endif
++endif
++endif
++
++BL2_SOURCES		+=	common/desc_image_load.c				\
++				plat/st/stm32mp2/plat_image_load.c
++
++BL2_SOURCES		+=	lib/optee/optee_utils.c
++
++# BL31 sources
++BL31_SOURCES		+=	${FDT_WRAPPERS_SOURCES}
++
++BL31_SOURCES		+=	plat/st/stm32mp2/bl31_plat_setup.c			\
++				plat/st/stm32mp2/stm32mp2_pm.c				\
++				plat/st/stm32mp2/stm32mp2_topology.c
++# Generic GIC v2
++include drivers/arm/gic/v2/gicv2.mk
++
++BL31_SOURCES		+=	${GICV2_SOURCES}					\
++				plat/common/plat_gicv2.c				\
++				plat/st/common/stm32mp_gic.c
++
++# Generic PSCI
++BL31_SOURCES		+=	plat/common/plat_psci_common.c
++
++# Compilation rules
++.PHONY: check_dtc_version stm32image clean_stm32image check_boot_device check_ddr_type
++.SUFFIXES:
++
++all: check_dtc_version stm32image ${STM32_TF_STM32}
++
++distclean realclean clean: clean_stm32image
++
++bl2: check_boot_device check_ddr_type
++
++check_boot_device:
++	@if [ ${STM32MP_EMMC} != 1 ] && \
++	    [ ${STM32MP_SDMMC} != 1 ] && \
++	    [ ${STM32MP_RAW_NAND} != 1 ] && \
++	    [ ${STM32MP_SPI_NAND} != 1 ] && \
++	    [ ${STM32MP_SPI_NOR} != 1 ] && \
++	    [ ${STM32MP_UART_PROGRAMMER} != 1 ] && \
++	    [ ${STM32MP_USB_PROGRAMMER} != 1 ]; then \
++		echo "No boot device driver is enabled"; \
++		false; \
++	fi
++
++check_ddr_type:
++	$(eval DDR_TYPE = $(shell echo $$(($(STM32MP_DDR3_TYPE) + \
++					   $(STM32MP_DDR4_TYPE) + \
++					   $(STM32MP_LPDDR4_TYPE)))))
++ifneq (${STM32MP_FPGA},1)
++	@if [ ${DDR_TYPE} != 1 ]; then \
++		echo "One and only one DDR type must be defined"; \
++		false; \
++	fi
++endif
++
++stm32image: ${STM32IMAGE}
++
++${STM32IMAGE}: ${STM32IMAGE_SRC}
++	${Q}${MAKE} CPPFLAGS="" --no-print-directory -C ${STM32IMAGEPATH}
++
++clean_stm32image:
++	${Q}${MAKE} --no-print-directory -C ${STM32IMAGEPATH} clean
++
++check_dtc_version:
++	@if [ ${DTC_VERSION} -lt 10404 ]; then \
++		echo "dtc version too old (${DTC_V}), you need at least version 1.4.4"; \
++		false; \
++	fi
++
++# Create DTB file for BL2
++${BUILD_PLAT}/fdts/%-bl2.dts: fdts/%.dts fdts/${BL2_DTSI} | ${BUILD_PLAT} fdt_dirs
++	@echo '#include "$(patsubst fdts/%,%,$<)"' > $@
++	@echo '#include "${BL2_DTSI}"' >> $@
++
++${BUILD_PLAT}/fdts/%-bl2.dtb: ${BUILD_PLAT}/fdts/%-bl2.dts
++
++${BUILD_PLAT}/stm32mp2-%.o: ${BUILD_PLAT}/fdts/%-bl2.dtb plat/st/stm32mp2/${ARCH}/stm32mp2.S bl2
++	@echo "  AS      stm32mp2.S"
++	${Q}${AS} ${ASFLAGS} ${TF_CFLAGS} \
++		-DDTB_BIN_PATH=\"$<\" \
++		-c $(word 2,$^) -o $@
++
++$(eval $(call MAKE_LD,${STM32_TF_LINKERFILE},plat/st/stm32mp2/${ARCH}/stm32mp2.ld.S,bl2))
++
++tf-a-%.elf: stm32mp2-%.o ${STM32_TF_LINKERFILE}
++	@echo "  LDS     $<"
++	${Q}${LD} -o $@ ${STM32_TF_ELF_LDFLAGS} -Map=$(@:.elf=.map) --script ${STM32_TF_LINKERFILE} $<
++
++tf-a-%.bin: tf-a-%.elf
++	${Q}${OC} -O binary $< $@
++	@echo
++	@echo "Built $@ successfully"
++	@echo
++
++tf-a-%.stm32: ${STM32IMAGE} tf-a-%.bin
++	@echo
++	@echo "Generate $@"
++	$(eval LOADADDR = $(shell cat $(@:.stm32=.map) | grep RAM | awk '{print $$2}'))
++	$(eval ENTRY = $(shell cat $(@:.stm32=.map) | grep "__BL2_IMAGE_START" | awk '{print $$1}'))
++	${Q}${STM32IMAGE} -s $(word 2,$^) -d $@ \
++		-l $(LOADADDR) -e ${ENTRY} \
++		-v ${STM32_TF_VERSION} \
++		-m ${STM32_HEADER_VERSION_MAJOR} \
++		-n ${STM32_HEADER_VERSION_MINOR} \
++		-b ${STM32_HEADER_BL2_BINARY_TYPE}
++	@echo
+diff --git a/tools/cert_create/Makefile b/tools/cert_create/Makefile
+index 77d2007d5..410e0638a 100644
+--- a/tools/cert_create/Makefile
++++ b/tools/cert_create/Makefile
+@@ -9,7 +9,7 @@ V		?= 0
+ DEBUG		:= 0
+ CRTTOOL		?= cert_create${BIN_EXT}
+ BINARY		:= $(notdir ${CRTTOOL})
+-OPENSSL_DIR	:= /usr
++OPENSSL_DIR	?= /usr
+ COT		:= tbbr
+ 
+ MAKE_HELPERS_DIRECTORY := ../../make_helpers/
+@@ -63,7 +63,7 @@ HOSTCCFLAGS += ${DEFINES}
+ # could get pulled in from firmware tree.
+ INC_DIR += -I ./include -I ${PLAT_INCLUDE} -I ${OPENSSL_DIR}/include
+ LIB_DIR := -L ${OPENSSL_DIR}/lib
+-LIB := -lssl -lcrypto
++LIB := -lssl -lcrypto -lpthread
+ 
+ HOSTCC ?= gcc
+ 
+diff --git a/tools/cert_create/include/key.h b/tools/cert_create/include/key.h
+index 128e7f7b4..2a227dd01 100644
+--- a/tools/cert_create/include/key.h
++++ b/tools/cert_create/include/key.h
+@@ -22,7 +22,8 @@ enum {
+ enum {
+ 	KEY_ALG_RSA,		/* RSA PSS as defined by PKCS#1 v2.1 (default) */
+ #ifndef OPENSSL_NO_EC
+-	KEY_ALG_ECDSA,
++	KEY_ALG_ECDSA_NIST,
++	KEY_ALG_ECDSA_BRAINPOOL,
+ #endif /* OPENSSL_NO_EC */
+ 	KEY_ALG_MAX_NUM
+ };
+@@ -42,7 +43,8 @@ enum{
+ static const unsigned int KEY_SIZES[KEY_ALG_MAX_NUM][KEY_SIZE_MAX_NUM] = {
+ 	{ 2048, 1024, 3072, 4096 },	/* KEY_ALG_RSA */
+ #ifndef OPENSSL_NO_EC
+-	{}				/* KEY_ALG_ECDSA */
++	{},				/* KEY_ALG_ECDSA_NIST */
++	{}				/* KEY_ALG_ECDSA_BRAINPOOL */
+ #endif /* OPENSSL_NO_EC */
+ };
+ 
+diff --git a/tools/cert_create/src/key.c b/tools/cert_create/src/key.c
+index 64359756f..e33441448 100644
+--- a/tools/cert_create/src/key.c
++++ b/tools/cert_create/src/key.c
+@@ -79,11 +79,11 @@ err:
+ }
+ 
+ #ifndef OPENSSL_NO_EC
+-static int key_create_ecdsa(key_t *key, int key_bits)
++static int key_create_ecdsa(key_t *key, int key_bits, int curve_id)
+ {
+ 	EC_KEY *ec;
+ 
+-	ec = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
++	ec = EC_KEY_new_by_curve_name(curve_id);
+ 	if (ec == NULL) {
+ 		printf("Cannot create EC key\n");
+ 		goto err;
+@@ -104,13 +104,25 @@ err:
+ 	EC_KEY_free(ec);
+ 	return 0;
+ }
++
++static int key_create_ecdsa_nist(key_t *key, int key_bits)
++{
++	return key_create_ecdsa(key, key_bits, NID_X9_62_prime256v1);
++}
++
++static int key_create_ecdsa_brainpool(key_t *key, int key_bits)
++{
++	return key_create_ecdsa(key, key_bits, NID_brainpoolP256t1);
++}
++
+ #endif /* OPENSSL_NO_EC */
+ 
+ typedef int (*key_create_fn_t)(key_t *key, int key_bits);
+ static const key_create_fn_t key_create_fn[KEY_ALG_MAX_NUM] = {
+-	key_create_rsa, 	/* KEY_ALG_RSA */
++	[KEY_ALG_RSA] = key_create_rsa,
+ #ifndef OPENSSL_NO_EC
+-	key_create_ecdsa, 	/* KEY_ALG_ECDSA */
++	[KEY_ALG_ECDSA_NIST] = key_create_ecdsa_nist,
++	[KEY_ALG_ECDSA_BRAINPOOL] = key_create_ecdsa_brainpool,
+ #endif /* OPENSSL_NO_EC */
+ };
+ 
+diff --git a/tools/cert_create/src/main.c b/tools/cert_create/src/main.c
+index b39378ca9..a91ca82dd 100644
+--- a/tools/cert_create/src/main.c
++++ b/tools/cert_create/src/main.c
+@@ -84,7 +84,8 @@ static char *strdup(const char *str)
+ static const char *key_algs_str[] = {
+ 	[KEY_ALG_RSA] = "rsa",
+ #ifndef OPENSSL_NO_EC
+-	[KEY_ALG_ECDSA] = "ecdsa"
++	[KEY_ALG_ECDSA_NIST] = "ecdsa",
++	[KEY_ALG_ECDSA_BRAINPOOL] = "ecdsa-brainpool"
+ #endif /* OPENSSL_NO_EC */
+ };
+ 
+diff --git a/tools/encrypt_fw/Makefile b/tools/encrypt_fw/Makefile
+index 96dff2324..7f959abeb 100644
+--- a/tools/encrypt_fw/Makefile
++++ b/tools/encrypt_fw/Makefile
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (c) 2019-2020, Linaro Limited. All rights reserved.
++# Copyright (c) 2019-2021, Linaro Limited. All rights reserved.
+ #
+ # SPDX-License-Identifier: BSD-3-Clause
+ #
+@@ -9,7 +9,7 @@ BUILD_INFO	?= 1
+ DEBUG		:= 0
+ ENCTOOL		?= encrypt_fw${BIN_EXT}
+ BINARY		:= $(notdir ${ENCTOOL})
+-OPENSSL_DIR	:= /usr
++OPENSSL_DIR	?= /usr
+ 
+ OBJECTS := src/encrypt.o \
+            src/cmd_opt.o \
+@@ -40,7 +40,7 @@ endif
+ # could get pulled in from firmware tree.
+ INC_DIR := -I ./include -I ../../include/tools_share -I ${OPENSSL_DIR}/include
+ LIB_DIR := -L ${OPENSSL_DIR}/lib
+-LIB := -lssl -lcrypto
++LIB := -lssl -lcrypto -lpthread
+ 
+ HOSTCC ?= gcc
+ 
+diff --git a/tools/fiptool/Makefile b/tools/fiptool/Makefile
+index 11d2e7b0b..7fc5670ee 100644
+--- a/tools/fiptool/Makefile
++++ b/tools/fiptool/Makefile
+@@ -8,6 +8,7 @@ MAKE_HELPERS_DIRECTORY := ../../make_helpers/
+ include ${MAKE_HELPERS_DIRECTORY}build_macros.mk
+ include ${MAKE_HELPERS_DIRECTORY}build_env.mk
+ 
++OPENSSL_DIR ?= /usr
+ FIPTOOL ?= fiptool${BIN_EXT}
+ PROJECT := $(notdir ${FIPTOOL})
+ OBJECTS := fiptool.o tbbr_config.o
+@@ -20,7 +21,8 @@ ifeq (${DEBUG},1)
+ else
+   HOSTCCFLAGS += -O2
+ endif
+-LDLIBS := -lcrypto
++LIB_DIR := -L ${OPENSSL_DIR}/lib
++LDLIBS := -lcrypto -lpthread
+ 
+ ifeq (${V},0)
+   Q := @
+@@ -48,7 +50,7 @@ all: ${PROJECT}
+ 
+ ${PROJECT}: ${OBJECTS} Makefile
+ 	@echo "  HOSTLD  $@"
+-	${Q}${HOSTCC} ${OBJECTS} -o $@ ${LDLIBS}
++	${Q}${HOSTCC} ${OBJECTS} -o $@ ${LIB_DIR} ${LDLIBS}
+ 	@${ECHO_BLANK_LINE}
+ 	@echo "Built $@ successfully"
+ 	@${ECHO_BLANK_LINE}
+diff --git a/tools/st/plat_fiptool/plat_def_uuid_config.c b/tools/st/plat_fiptool/plat_def_uuid_config.c
+new file mode 100644
+index 000000000..8bf104a5c
+--- /dev/null
++++ b/tools/st/plat_fiptool/plat_def_uuid_config.c
+@@ -0,0 +1,20 @@
++/*
++ * Copyright (c) 2021, STMicroelectronics - All Rights Reserved
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#include <stddef.h>
++
++#include <firmware_image_package.h>
++
++#include "tbbr_config.h"
++
++toc_entry_t plat_def_toc_entries[] = {
++	{
++		.name = "DDR_FW",
++		.uuid = UUID_DDR_FW,
++		.cmdline_name = "ddr-fw"
++	}
++};
++
+diff --git a/tools/st/plat_fiptool/plat_fiptool.mk b/tools/st/plat_fiptool/plat_fiptool.mk
+new file mode 100644
+index 000000000..747c64d8d
+--- /dev/null
++++ b/tools/st/plat_fiptool/plat_fiptool.mk
+@@ -0,0 +1,25 @@
++#
++# Copyright (c) 2021, STMicroelectronics - All Rights Reserved
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++
++# Name of the platform defined source file name,
++# which contains platform defined UUID entries populated
++# in the plat_def_toc_entries[].
++PLAT_DEF_UUID_CONFIG_FILE_NAME	:= plat_def_uuid_config
++
++PLAT_DEF_UUID_CONFIG_FILE_PATH := ../st/plat_fiptool
++
++PLAT_DEF_UUID := yes
++
++INCLUDE_PATHS +=  -I../../plat/st/stm32mp2/include/ \
++		  -I./
++
++ifeq (${PLAT_DEF_UUID},yes)
++HOSTCCFLAGS += -DPLAT_DEF_FIP_UUID
++PLAT_OBJECTS += ${PLAT_DEF_UUID_CONFIG_FILE_PATH}/${PLAT_DEF_UUID_CONFIG_FILE_NAME}.o
++endif
++
++OBJECTS += ${PLAT_OBJECTS}
++
+diff --git a/tools/stm32image/stm32image.c b/tools/stm32image/stm32image.c
+index fb1dee072..dd2df1253 100644
+--- a/tools/stm32image/stm32image.c
++++ b/tools/stm32image/stm32image.c
+@@ -22,16 +22,16 @@
+ #define VER_MINOR		1
+ #define VER_VARIANT		0
+ #define HEADER_VERSION_V1	0x1
+-#define TF_BINARY_TYPE		0x10
++#define HEADER_VERSION_V2	0x2
++#define PADDING_HEADER_MAGIC	__be32_to_cpu(0x5354FFFF)
++#define PADDING_HEADER_FLAG	(1 << 31)
++#define PADDING_HEADER_LENGTH	0x180
+ 
+-/* Default option : bit0 => no signature */
+-#define HEADER_DEFAULT_OPTION	(__cpu_to_le32(0x00000001))
+-
+-struct stm32_header {
++struct stm32_header_v1 {
+ 	uint32_t magic_number;
+ 	uint8_t image_signature[64];
+ 	uint32_t image_checksum;
+-	uint8_t  header_version[4];
++	uint8_t header_version[4];
+ 	uint32_t image_length;
+ 	uint32_t image_entry_point;
+ 	uint32_t reserved1;
+@@ -45,31 +45,50 @@ struct stm32_header {
+ 	uint8_t binary_type;
+ };
+ 
+-static void stm32image_default_header(struct stm32_header *ptr)
++struct stm32_header_v2 {
++	uint32_t magic_number;
++	uint8_t image_signature[64];
++	uint32_t image_checksum;
++	uint8_t header_version[4];
++	uint32_t image_length;
++	uint32_t image_entry_point;
++	uint32_t reserved1;
++	uint32_t load_address;
++	uint32_t reserved2;
++	uint32_t version_number;
++	uint32_t extension_flags;
++	uint32_t extension_headers_length;
++	uint32_t binary_type;
++	uint8_t padding[16];
++	uint32_t extension_header_type;
++	uint32_t extension_header_length;
++	uint8_t extension_padding[376];
++};
++
++static void stm32image_default_header(void *ptr)
+ {
+-	if (!ptr) {
++	struct stm32_header_v1 *header = (struct stm32_header_v1 *)ptr;
++
++	if (!header) {
+ 		return;
+ 	}
+ 
+-	ptr->magic_number = HEADER_MAGIC;
+-	ptr->option_flags = HEADER_DEFAULT_OPTION;
+-	ptr->ecdsa_algorithm = __cpu_to_le32(1);
+-	ptr->version_number = __cpu_to_le32(0);
+-	ptr->binary_type = TF_BINARY_TYPE;
++	header->magic_number = HEADER_MAGIC;
++	header->version_number = __cpu_to_le32(0);
+ }
+ 
+-static uint32_t stm32image_checksum(void *start, uint32_t len)
++static uint32_t stm32image_checksum(void *start, uint32_t len,
++				    uint32_t header_size)
+ {
+ 	uint32_t csum = 0;
+-	uint32_t hdr_len = sizeof(struct stm32_header);
+ 	uint8_t *p;
+ 
+-	if (len < hdr_len) {
++	if (len < header_size) {
+ 		return 0;
+ 	}
+ 
+-	p = (unsigned char *)start + hdr_len;
+-	len -= hdr_len;
++	p = (unsigned char *)start + header_size;
++	len -= header_size;
+ 
+ 	while (len > 0) {
+ 		csum += *p;
+@@ -82,7 +101,8 @@ static uint32_t stm32image_checksum(void *start, uint32_t len)
+ 
+ static void stm32image_print_header(const void *ptr)
+ {
+-	struct stm32_header *stm32hdr = (struct stm32_header *)ptr;
++	struct stm32_header_v1 *stm32hdr = (struct stm32_header_v1 *)ptr;
++	struct stm32_header_v2 *stm32hdr_v2 = (struct stm32_header_v2 *)ptr;
+ 
+ 	printf("Image Type   : ST Microelectronics STM32 V%d.%d\n",
+ 	       stm32hdr->header_version[VER_MAJOR],
+@@ -95,40 +115,87 @@ static void stm32image_print_header(const void *ptr)
+ 	       __le32_to_cpu(stm32hdr->image_entry_point));
+ 	printf("Checksum     : 0x%08x\n",
+ 	       __le32_to_cpu(stm32hdr->image_checksum));
+-	printf("Option     : 0x%08x\n",
+-	       __le32_to_cpu(stm32hdr->option_flags));
+-	printf("Version	   : 0x%08x\n",
++
++	switch (stm32hdr->header_version[VER_MAJOR]) {
++	case HEADER_VERSION_V1:
++		printf("Option     : 0x%08x\n",
++		       __le32_to_cpu(stm32hdr->option_flags));
++		break;
++
++	case HEADER_VERSION_V2:
++		printf("Extension    : 0x%08x\n",
++		       __le32_to_cpu(stm32hdr_v2->extension_flags));
++		break;
++
++	default:
++		printf("Incorrect header version\n");
++	}
++
++	printf("Version	     : 0x%08x\n",
+ 	       __le32_to_cpu(stm32hdr->version_number));
+ }
+ 
+-static void stm32image_set_header(void *ptr, struct stat *sbuf, int ifd,
+-				  uint32_t loadaddr, uint32_t ep, uint32_t ver,
+-				  uint32_t major, uint32_t minor)
++static int stm32image_set_header(void *ptr, struct stat *sbuf, int ifd,
++				 uint32_t loadaddr, uint32_t ep, uint32_t ver,
++				 uint32_t major, uint32_t minor,
++				 uint32_t binary_type, uint32_t header_size)
+ {
+-	struct stm32_header *stm32hdr = (struct stm32_header *)ptr;
++	struct stm32_header_v1 *stm32hdr = (struct stm32_header_v1 *)ptr;
++	struct stm32_header_v2 *stm32hdr_v2 = (struct stm32_header_v2 *)ptr;
++	uint32_t ext_size = 0U;
++	uint32_t ext_flags = 0U;
+ 
+-	stm32image_default_header(stm32hdr);
++	stm32image_default_header(ptr);
+ 
+ 	stm32hdr->header_version[VER_MAJOR] = major;
+ 	stm32hdr->header_version[VER_MINOR] = minor;
+ 	stm32hdr->load_address = __cpu_to_le32(loadaddr);
+ 	stm32hdr->image_entry_point = __cpu_to_le32(ep);
+ 	stm32hdr->image_length = __cpu_to_le32((uint32_t)sbuf->st_size -
+-					     sizeof(struct stm32_header));
++					       header_size);
+ 	stm32hdr->image_checksum =
+-		__cpu_to_le32(stm32image_checksum(ptr, sbuf->st_size));
++		__cpu_to_le32(stm32image_checksum(ptr, sbuf->st_size,
++						  header_size));
++
++	switch (stm32hdr->header_version[VER_MAJOR]) {
++	case HEADER_VERSION_V1:
++		/* Default option for header v1 : bit0 => no signature */
++		stm32hdr->option_flags = __cpu_to_le32(0x00000001);
++		stm32hdr->ecdsa_algorithm = __cpu_to_le32(1);
++		stm32hdr->binary_type = (uint8_t)binary_type;
++		break;
++
++	case HEADER_VERSION_V2:
++		stm32hdr_v2->binary_type = binary_type;
++		ext_size += PADDING_HEADER_LENGTH;
++		ext_flags |= PADDING_HEADER_FLAG;
++		stm32hdr_v2->extension_flags =
++			__cpu_to_le32(ext_flags);
++		stm32hdr_v2->extension_headers_length =
++			__cpu_to_le32(ext_size);
++		stm32hdr_v2->extension_header_type = PADDING_HEADER_MAGIC;
++		stm32hdr_v2->extension_header_length =
++			__cpu_to_le32(PADDING_HEADER_LENGTH);
++		break;
++
++	default:
++		return -1;
++	}
++
+ 	stm32hdr->version_number = __cpu_to_le32(ver);
++
++	return 0;
+ }
+ 
+ static int stm32image_create_header_file(char *srcname, char *destname,
+ 					 uint32_t loadaddr, uint32_t entry,
+ 					 uint32_t version, uint32_t major,
+-					 uint32_t minor)
++					 uint32_t minor, uint32_t binary_type)
+ {
+-	int src_fd, dest_fd;
++	int src_fd, dest_fd, header_size;
+ 	struct stat sbuf;
+ 	unsigned char *ptr;
+-	struct stm32_header stm32image_header;
++	void *stm32image_header;
+ 
+ 	dest_fd = open(destname, O_RDWR | O_CREAT | O_TRUNC | O_APPEND, 0666);
+ 	if (dest_fd == -1) {
+@@ -154,15 +221,32 @@ static int stm32image_create_header_file(char *srcname, char *destname,
+ 		return -1;
+ 	}
+ 
+-	memset(&stm32image_header, 0, sizeof(struct stm32_header));
++	switch (major) {
++	case HEADER_VERSION_V1:
++		stm32image_header = malloc(sizeof(struct stm32_header_v1));
++		header_size = sizeof(struct stm32_header_v1);
++		break;
++
++	case HEADER_VERSION_V2:
++		stm32image_header = malloc(sizeof(struct stm32_header_v2));
++		header_size = sizeof(struct stm32_header_v2);
++		break;
+ 
+-	if (write(dest_fd, &stm32image_header, sizeof(struct stm32_header)) !=
+-	    sizeof(struct stm32_header)) {
++	default:
++		return -1;
++	}
++
++	memset(stm32image_header, 0, header_size);
++	if (write(dest_fd, stm32image_header, header_size) !=
++	    header_size) {
+ 		fprintf(stderr, "Write error %s: %s\n", destname,
+ 			strerror(errno));
++		free(stm32image_header);
+ 		return -1;
+ 	}
+ 
++	free(stm32image_header);
++
+ 	if (write(dest_fd, ptr, sbuf.st_size) != sbuf.st_size) {
+ 		fprintf(stderr, "Write error on %s: %s\n", destname,
+ 			strerror(errno));
+@@ -184,8 +268,11 @@ static int stm32image_create_header_file(char *srcname, char *destname,
+ 		return -1;
+ 	}
+ 
+-	stm32image_set_header(ptr, &sbuf, dest_fd, loadaddr, entry, version,
+-			      major, minor);
++	if (stm32image_set_header(ptr, &sbuf, dest_fd, loadaddr,
++				  entry, version, major, minor,
++				  binary_type, header_size) != 0) {
++		return -1;
++	}
+ 
+ 	stm32image_print_header(ptr);
+ 
+@@ -196,13 +283,22 @@ static int stm32image_create_header_file(char *srcname, char *destname,
+ 
+ int main(int argc, char *argv[])
+ {
+-	int opt, loadaddr = -1, entry = -1, err = 0, version = 0;
+-	int major = HEADER_VERSION_V1;
++	int opt;
++	int loadaddr = -1;
++	int entry = -1;
++	int err = 0;
++	int version = 0;
++	int binary_type = -1;
++	int major = HEADER_VERSION_V2;
+ 	int minor = 0;
+-	char *dest = NULL, *src = NULL;
++	char *dest = NULL;
++	char *src = NULL;
+ 
+-	while ((opt = getopt(argc, argv, ":s:d:l:e:v:m:n:")) != -1) {
++	while ((opt = getopt(argc, argv, ":b:s:d:l:e:v:m:n:")) != -1) {
+ 		switch (opt) {
++		case 'b':
++			binary_type = strtol(optarg, NULL, 0);
++			break;
+ 		case 's':
+ 			src = optarg;
+ 			break;
+@@ -226,7 +322,7 @@ int main(int argc, char *argv[])
+ 			break;
+ 		default:
+ 			fprintf(stderr,
+-				"Usage : %s [-s srcfile] [-d destfile] [-l loadaddr] [-e entry_point] [-m major] [-n minor]\n",
++				"Usage : %s [-s srcfile] [-d destfile] [-l loadaddr] [-e entry_point] [-m major] [-n minor] [-b binary_type]\n",
+ 					argv[0]);
+ 			return -1;
+ 		}
+@@ -252,8 +348,14 @@ int main(int argc, char *argv[])
+ 		return -1;
+ 	}
+ 
++	if (binary_type == -1) {
++		fprintf(stderr, "Missing -b option\n");
++		return -1;
++	}
++
+ 	err = stm32image_create_header_file(src, dest, loadaddr,
+-					    entry, version, major, minor);
++					    entry, version, major, minor,
++					    binary_type);
+ 
+ 	return err;
+ }
+-- 
+2.25.1
+

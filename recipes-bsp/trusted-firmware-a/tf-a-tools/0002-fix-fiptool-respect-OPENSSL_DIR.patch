@@ -1,0 +1,82 @@
+From 2f66809a4a494f5127d8ceb3d1557745f64723dc Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Fri, 2 Sep 2022 09:12:01 +0200
+Subject: [PATCH 2/2] fix(fiptool): respect OPENSSL_DIR
+
+fiptool links to libcrypto, so as with the other tools it should respect
+OPENSSL_DIR for include/library paths.
+
+Signed-off-by: Ross Burton <ross.burton@arm.com>
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ Makefile               | 24 ++++++++++++------------
+ tools/fiptool/Makefile |  2 +-
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index b2f5cd13a..d0e4acbc4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -174,18 +174,18 @@ endif
+ # Toolchain
+ ################################################################################
+ 
+-HOSTCC			:=	gcc
++HOSTCC			?=	gcc
+ export HOSTCC
+ 
+-CC			:=	${CROSS_COMPILE}gcc
+-CPP			:=	${CROSS_COMPILE}cpp
+-AS			:=	${CROSS_COMPILE}gcc
+-AR			:=	${CROSS_COMPILE}ar
+-LINKER			:=	${CROSS_COMPILE}ld
+-OC			:=	${CROSS_COMPILE}objcopy
+-OD			:=	${CROSS_COMPILE}objdump
+-NM			:=	${CROSS_COMPILE}nm
+-PP			:=	${CROSS_COMPILE}gcc -E
++# CC			:=	${CROSS_COMPILE}gcc
++# CPP			:=	${CROSS_COMPILE}cpp
++# AS			:=	${CROSS_COMPILE}gcc
++# AR			:=	${CROSS_COMPILE}ar
++# LINKER			:=	${CROSS_COMPILE}ld
++# OC			:=	${CROSS_COMPILE}objcopy
++# OD			:=	${CROSS_COMPILE}objdump
++# NM			:=	${CROSS_COMPILE}nm
++# PP			:=	${CROSS_COMPILE}gcc -E
+ DTC			:=	dtc
+ 
+ # Use ${LD}.bfd instead if it exists (as absolute path or together with $PATH).
+@@ -1384,7 +1384,7 @@ checkpatch:		locate-checkpatch
+ certtool: ${CRTTOOL}
+ 
+ ${CRTTOOL}: FORCE
+-	${Q}${MAKE} PLAT=${PLAT} USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} CRTTOOL=${CRTTOOL} --no-print-directory -C ${CRTTOOLPATH}
++	${Q}${MAKE} PLAT=${PLAT} USE_TBBR_DEFS=${USE_TBBR_DEFS} COT=${COT} CRTTOOL=${CRTTOOL} OPENSSL_DIR=${OPENSSL_DIR} --no-print-directory -C ${CRTTOOLPATH}
+ 	@${ECHO_BLANK_LINE}
+ 	@echo "Built $@ successfully"
+ 	@${ECHO_BLANK_LINE}
+@@ -1429,7 +1429,7 @@ fwu_fip: ${BUILD_PLAT}/${FWU_FIP_NAME}
+ 
+ ${FIPTOOL}: FORCE
+ ifdef UNIX_MK
+-	${Q}${MAKE} CPPFLAGS="-DVERSION='\"${VERSION_STRING}\"'" FIPTOOL=${FIPTOOL} --no-print-directory -C ${FIPTOOLPATH}
++	${Q}${MAKE} CPPFLAGS="-DVERSION='\"${VERSION_STRING}\"'" FIPTOOL=${FIPTOOL} OPENSSL_DIR=${OPENSSL_DIR} --no-print-directory -C ${FIPTOOLPATH}
+ else
+ # Clear the MAKEFLAGS as we do not want
+ # to pass the gnumake flags to nmake.
+diff --git a/tools/fiptool/Makefile b/tools/fiptool/Makefile
+index 7fc5670ee..272b8d854 100644
+--- a/tools/fiptool/Makefile
++++ b/tools/fiptool/Makefile
+@@ -30,7 +30,7 @@ else
+   Q :=
+ endif
+ 
+-INCLUDE_PATHS := -I../../include/tools_share
++INCLUDE_PATHS := -I../../include/tools_share -I${OPENSSL_DIR}/include
+ 
+ HOSTCC ?= gcc
+ 
+-- 
+2.25.1
+
