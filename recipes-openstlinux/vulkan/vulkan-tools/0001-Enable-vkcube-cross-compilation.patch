@@ -1,0 +1,76 @@
+From 0a7995f1fb5d27ce7177ca10e3d471b9fb6b4643 Mon Sep 17 00:00:00 2001
+From: Florian LEPELTIER <florian.lepeltier@st.com>
+Date: Thu, 8 Sep 2022 10:02:55 +0200
+Subject: [PATCH] Enable vkcube cross-compilation
+
+Change-Id: Ic01ccfdf0c1ea244dc83d13e85353fc4743ba01f
+---
+ cube/CMakeLists.txt | 48 +++++++++++++++++++++------------------------
+ 1 file changed, 22 insertions(+), 26 deletions(-)
+
+diff --git a/cube/CMakeLists.txt b/cube/CMakeLists.txt
+index 4087351d..bb5feea9 100644
+--- a/cube/CMakeLists.txt
++++ b/cube/CMakeLists.txt
+@@ -228,21 +228,19 @@ include_directories(${CUBE_INCLUDE_DIRS})
+ if(APPLE)
+     include(macOS/cube/cube.cmake)
+ elseif(NOT WIN32)
+-    if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
+-        add_executable(vkcube
+-                       cube.c
+-                       ${PROJECT_SOURCE_DIR}/cube/cube.vert
+-                       ${PROJECT_SOURCE_DIR}/cube/cube.frag
+-                       cube.vert.inc
+-                       cube.frag.inc
+-                       ${OPTIONAL_WAYLAND_DATA_FILES})
+-        target_link_libraries(vkcube Vulkan::Vulkan)
+-        target_compile_definitions(vkcube PUBLIC ${CUBE_PLATFORM})
+-        include(CheckLibraryExists)
+-        CHECK_LIBRARY_EXISTS("rt" clock_gettime "" NEED_RT)
+-        if (NEED_RT)
+-            target_link_libraries(vkcube rt)
+-        endif()
++    add_executable(vkcube
++                    cube.c
++                    ${PROJECT_SOURCE_DIR}/cube/cube.vert
++                    ${PROJECT_SOURCE_DIR}/cube/cube.frag
++                    cube.vert.inc
++                    cube.frag.inc
++                    ${OPTIONAL_WAYLAND_DATA_FILES})
++    target_link_libraries(vkcube Vulkan::Vulkan)
++    target_compile_definitions(vkcube PUBLIC ${CUBE_PLATFORM})
++    include(CheckLibraryExists)
++    CHECK_LIBRARY_EXISTS("rt" clock_gettime "" NEED_RT)
++    if (NEED_RT)
++        target_link_libraries(vkcube rt)
+     endif()
+ else()
+     if(CMAKE_CL_64)
+@@ -280,17 +278,15 @@ endif()
+ if(APPLE)
+     include(macOS/cubepp/cubepp.cmake)
+ elseif(NOT WIN32)
+-    if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
+-        add_executable(vkcubepp
+-                       cube.cpp
+-                       ${PROJECT_SOURCE_DIR}/cube/cube.vert
+-                       ${PROJECT_SOURCE_DIR}/cube/cube.frag
+-                       cube.vert.inc
+-                       cube.frag.inc
+-                       ${OPTIONAL_WAYLAND_DATA_FILES})
+-        target_link_libraries(vkcubepp Vulkan::Vulkan)
+-        target_compile_definitions(vkcubepp PUBLIC ${CUBE_PLATFORM})
+-    endif()
++    add_executable(vkcubepp
++                    cube.cpp
++                    ${PROJECT_SOURCE_DIR}/cube/cube.vert
++                    ${PROJECT_SOURCE_DIR}/cube/cube.frag
++                    cube.vert.inc
++                    cube.frag.inc
++                    ${OPTIONAL_WAYLAND_DATA_FILES})
++    target_link_libraries(vkcubepp Vulkan::Vulkan)
++    target_compile_definitions(vkcubepp PUBLIC ${CUBE_PLATFORM})
+ else()
+     if(CMAKE_CL_64)
+         set(LIB_DIR "Win64")
