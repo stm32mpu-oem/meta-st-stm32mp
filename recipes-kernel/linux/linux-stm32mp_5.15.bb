@@ -15,6 +15,9 @@ SRC_URI[kernel.sha256sum] = "da47d9a80b694548835ccb553b6eb1a1f3f5d5cddd9e2bd6f48
 
 SRC_URI += " \
     file://${LINUX_VERSION}/${LINUX_VERSION}.${LINUX_SUBVERSION}/0001-v5.15-stm32mp25-alpha-r1.patch \
+    \
+    file://${LINUX_VERSION}/${LINUX_VERSION}.${LINUX_SUBVERSION}/0001-arm64-dts-st-remove-SDR104-and-HS200-modes-on-stm32m.patch \
+    file://${LINUX_VERSION}/${LINUX_VERSION}.${LINUX_SUBVERSION}/0001-arm64-dts-st-increase-slew-rate-for-eth1-and-eth3-rg.patch \
     "
 
 LINUX_TARGET = "stm32mp2"

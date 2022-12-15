@@ -1,0 +1,58 @@
+From 5c2ade383171d9a9f8961575c7bf55f1f1675e43 Mon Sep 17 00:00:00 2001
+From: Christophe Roullier <christophe.roullier@st.com>
+Date: Wed, 14 Dec 2022 12:58:58 +0100
+Subject: [PATCH] arm64: dts: st: increase slew-rate for eth1 and eth3 rgmii
+ pins
+
+On cut 1.1, need to increase slew-rate to have good performance on
+eth1 and eth3
+
+Signed-off-by: Christophe Roullier <christophe.roullier@st.com>
+Change-Id: I99c34da76fec017566490c789e7a9070e74053a3
+---
+ arch/arm64/boot/dts/st/stm32mp25-pinctrl-test.dtsi | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/st/stm32mp25-pinctrl-test.dtsi b/arch/arm64/boot/dts/st/stm32mp25-pinctrl-test.dtsi
+index 9a741b45a524..df7b94c755a5 100644
+--- a/arch/arm64/boot/dts/st/stm32mp25-pinctrl-test.dtsi
++++ b/arch/arm64/boot/dts/st/stm32mp25-pinctrl-test.dtsi
+@@ -59,7 +59,7 @@ pins1 {
+ 				 <STM32_PINMUX('A', 13, AF10)>; /* ETH_RGMII_TX_CTL */
+ 			bias-disable;
+ 			drive-push-pull;
+-			slew-rate = <2>;
++			slew-rate = <3>;
+ 			st,io-retime = <1>;
+ 			st,io-clk-edge = <1>;
+ 		};
+@@ -68,7 +68,7 @@ pins2 {
+ 				 <STM32_PINMUX('C', 0, AF12)>; /* ETH_RGMII_GTX_CLK */
+ 			bias-disable;
+ 			drive-push-pull;
+-			slew-rate = <2>;
++			slew-rate = <3>;
+ 		};
+ 		pins3 {
+ 			pinmux = <STM32_PINMUX('F', 1, AF10)>, /* ETH_RGMII_RXD0 */
+@@ -167,7 +167,7 @@ pins1 {
+ 				 <STM32_PINMUX('A', 3, AF14)>; /* ETH_RGMII_TX_CTL */
+ 			bias-disable;
+ 			drive-push-pull;
+-			slew-rate = <2>;
++			slew-rate = <3>;
+ 			st,io-retime = <1>;
+ 			st,io-clk-edge = <1>;
+ 		};
+@@ -175,7 +175,7 @@ pins2 {
+ 			pinmux = <STM32_PINMUX('H', 2, AF14)>; /* ETH_RGMII_GTX_CLK */
+ 			bias-disable;
+ 			drive-push-pull;
+-			slew-rate = <2>;
++			slew-rate = <3>;
+ 			st,io-delay = <2>;
+ 		};
+ 		pins3 {
+-- 
+2.25.1
+
