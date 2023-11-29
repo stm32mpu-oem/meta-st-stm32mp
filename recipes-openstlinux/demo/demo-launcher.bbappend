@@ -1,2 +1,1 @@
 FILESEXTRAPATHS:append := "${THISDIR}/${PN}:"
-
