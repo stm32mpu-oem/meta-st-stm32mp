@@ -12,8 +12,10 @@ PV = "1.0"
 
 # Machine generic
 SRC_URI = " \
-    file://asound-stm32mp25yx-valid3.conf \
-    file://asound-stm32mp25yx-valid3.state \
+    file://asound-stm32mp25yx-dk.conf \
+    file://asound-stm32mp25yx-dk.state \
+    file://asound-stm32mp25yx-ev1.conf \
+    file://asound-stm32mp25yx-ev1.state \
     "
 
 S = "${WORKDIR}"
@@ -33,9 +35,11 @@ do_install() {
         for n in 7; # 1 3 7
         do
             cd ${D}${sysconfdir}/
-            ln -sf asound-stm32mp25yx-valid3.conf asound-stm32mp25$n$p-valid3.conf
+            ln -sf asound-stm32mp25yx-dk.conf asound-stm32mp25$n$p-dk.conf
+            ln -sf asound-stm32mp25yx-dk.conf asound-stm32mp25$n$p-ev1.conf
             cd ${D}${localstatedir}/lib/alsa
-            ln -sf asound-stm32mp25yx-valid3.state asound-stm32mp25$n$p-valid3.state
+            ln -sf asound-stm32mp25yx-dk.state asound-stm32mp25$n$p-dk.state
+            ln -sf asound-stm32mp25yx-dk.state asound-stm32mp25$n$p-ev1.state
         done
     done
 }
