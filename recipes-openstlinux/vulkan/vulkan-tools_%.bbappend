@@ -2,9 +2,6 @@
 EXTRA_OECMAKE:remove = "-DBUILD_CUBE=OFF"
 EXTRA_OECMAKE:append = " -DBUILD_CUBE=ON"
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
-SRC_URI:append = " file://0001-Enable-vkcube-cross-compilation.patch"
-
 # glslang required to build vkcube shaders
 DEPENDS:append = " glslang-native"
 EXTRA_OECMAKE:append = " -DGLSLANG_INSTALL_DIR=${STAGING_DIR_NATIVE}"
