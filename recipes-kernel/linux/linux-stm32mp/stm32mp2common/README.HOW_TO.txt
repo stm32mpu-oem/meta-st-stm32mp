@@ -58,9 +58,10 @@ If not already done, extract the sources from Developer Package tarball, for exa
     $ tar xf en.SOURCES-stm32mp2-*.tar.xz
 
 In the kernel source directory (sources/*/##BP##-##PR##),
-you have one kernel source tarball and the patches:
+you have one kernel source tarball, the patches and one Makefile:
    - ##LINUX_TARNAME##
    - 00*.patch
+   - Makefile.sdk
 
 If you would like to have a git management for the source code move to
 to section 4 [Management of kernel source code with GIT].
@@ -195,7 +196,7 @@ inside the dedicated build directory).
 * Compile and install on a build directory (different of kernel source code directory)
     $ cd <directory to kernel source code>
     * Build kernel images (Image.gz and vmlinux) and device tree (dtbs)
-    $> make Image.gz vmlinux dtbs LOADADDR=0xC2000040 O="$PWD/../build" KBUILD_EXTDTS="${EXTDT_DIR}"
+    $> make Image.gz vmlinux dtbs LOADADDR=0xC2000040 O="$PWD/../build" KBUILD_EXTDTS="${EXTDT_DIR}/linux"
     * Build kernel module
     $> make modules O="$PWD/../build"
     * Generate output build artifacts
