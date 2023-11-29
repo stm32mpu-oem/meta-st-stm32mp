@@ -26,7 +26,8 @@ LDFLAGS =
 CFLAGS =
 CPPFLAGS =
 # Define default make options
-EXTRA_OEMAKE = $(echo "${EXTRA_OEMAKE}" | sed "s|LIBGCC_LOCATE_CFLAGS=[^ ]* |LIBGCC_LOCATE_CFLAGS=\$(KCFLAGS) |")
+EXTRA_OEMAKE = $(echo "${EXTRA_OEMAKE}" | sed "s|LIBGCC_LOCATE_CFLAGS=[^ ]* |LIBGCC_LOCATE_CFLAGS=\$(KCFLAGS) |" | \
+                sed 's,CFG_EXT_DTS='"${STAGING_EXTDT_DIR}"'/optee,CFG_EXT_DTS=\$(EXTDT_DIR)/optee,;s,CFG_SCP_FIRMWARE='"${STAGING_SCPFW_DIR}"',CFG_SCP_FIRMWARE=\$(SCPFW_DIR),')
 
 # Set dependencies list for building all
 DEPS = optee
@@ -41,6 +42,8 @@ help:
 	@echo "  SRC_PATH  = \$(SRC_PATH)"
 	@echo "  BLD_PATH  = \$(BLD_PATH)"
 	@echo "  DEPLOYDIR = \$(DEPLOYDIR)"
+	@echo "  EXTDT_DIR = \$(EXTDT_DIR)"
+	@echo "  SCPFW_DIR = \$(SCPFW_DIR)"
 	@echo
 	@echo "FIP configuration:"
 	@echo "  Do not forget to set FIP deploydir folders (such as FIP_DEPLOYDIR_ROOT) to provide path to needed binaries"

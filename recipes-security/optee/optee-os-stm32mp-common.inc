@@ -7,6 +7,8 @@ RPROVIDES:${PN} += "virtual/optee-os virtual/systemd-bootconf"
 
 CVE_PRODUCT = "op-tee:op-tee_os"
 
+inherit external-dt scp-firmware
+
 B = "${WORKDIR}/build"
 # Configure build dir for externalsrc class usage through devtool
 EXTERNALSRC_BUILD:pn-${PN} = "${WORKDIR}/build"
@@ -26,7 +28,8 @@ OPTEEOUTPUTMACHINE ?= "${MACHINE}"
 ST_OPTEE_DEBUG_LOG_LEVEL ??= "2"
 
 # default core debug
-ST_OPTEE_CORE_DEBUG ??="y"
+ST_OPTEE_CORE_DEBUG ??= "y"
+ST_OPTEE_CORE_DEBUG:stm32mp15common ?= "n"
 
 EXTRA_OEMAKE = "PLATFORM=${OPTEEMACHINE}"
 EXTRA_OEMAKE += "CROSS_COMPILE_core=${HOST_PREFIX}"
@@ -34,11 +37,23 @@ EXTRA_OEMAKE += "CROSS_COMPILE_ta_arm64=${HOST_PREFIX}"
 EXTRA_OEMAKE += "${@bb.utils.contains('TUNE_FEATURES', 'aarch64', 'ARCH=arm CFG_ARM64_core=y', 'ARCH=arm CFG_ARM32_core=y CROSS_COMPILE_ta_arm32=${HOST_PREFIX}', d)}"
 EXTRA_OEMAKE += "NOWERROR=1"
 EXTRA_OEMAKE += "LDFLAGS="
-# ARCH must be set to arm (even for 64 bits to avoid an override in optee-os Makefile)
-EXTRA_OEMAKE += "ARCH=arm"
+# Set external-dt support
+EXTRA_OEMAKE += "${@bb.utils.contains('EXTERNAL_DT_ENABLED', '1', 'CFG_EXT_DTS=${STAGING_EXTDT_DIR}/optee', '', d)}"
+# Set scp-firmware support
+EXTRA_OEMAKE += "CFG_SCP_FIRMWARE=${STAGING_SCPFW_DIR}"
 
 # debug and trace
 EXTRA_OEMAKE += "${@bb.utils.contains('ST_OPTEE_DEBUG_TRACE', '1', 'CFG_TEE_CORE_LOG_LEVEL=${ST_OPTEE_DEBUG_LOG_LEVEL} CFG_TEE_CORE_DEBUG=${ST_OPTEE_CORE_DEBUG}', '', d)}"
+
+# OPTEE in sysram
+EXTRA_OEMAKE:append:stm32mp15common = " ${@bb.utils.contains('ST_OPTEE_IN_SYSRAM', '1', 'CFG_STM32MP1_OPTEE_IN_SYSRAM=y', '', d)}"
+
+# SCP firmware
+#EXTRA_OEMAKE_SCP_FIRMWARE ??= ""
+EXTRA_OEMAKE_SCP_FIRMWARE:stm32mp15common ??= ""
+EXTRA_OEMAKE_SCP_FIRMWARE:stm32mp13common ??= "${@bb.utils.contains('ENABLE_SCMI_SCPFW', '1', 'CFG_SCMI_SCPFW=y', 'CFG_SCMI_SCPFW=n', d)}"
+EXTRA_OEMAKE_SCP_FIRMWARE:stm32mp25common ??= "CFG_SCMI_SCPFW=y"
+EXTRA_OEMAKE += " ${EXTRA_OEMAKE_SCP_FIRMWARE}"
 
 OPTEE_ARCH:armv7a = "arm32"
 OPTEE_ARCH:armv7ve = "arm32"
@@ -68,8 +83,6 @@ do_compile() {
         oe_runmake -C ${S} O=${B}/out
     fi
 }
-
-OPTEE_OUTPUT_TA_DIR ?= "export-user_ta"
 
 do_install:stm32mp1common() {
     #install TA devkit
@@ -144,3 +157,6 @@ FILES:${PN}-dev = "/usr/include/optee"
 INSANE_SKIP:${PN}-dev = "staticdev"
 
 INHIBIT_PACKAGE_STRIP = "1"
+# ---------------------------------------------------------------------
+# Avoid QA Issue: contains reference to TMPDIR [buildpaths]
+INSANE_SKIP:${PN} += "buildpaths"

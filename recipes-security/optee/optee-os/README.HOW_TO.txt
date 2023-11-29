@@ -29,6 +29,12 @@ If you have never configured you git configuration:
 Warning: the environment are valid only on the shell session where you have
  sourced the sdk environment.
 
+Scp-firmware is extracted. If this is not the case, please follow the
+README_HOW_TO.txt in ../scp-firmware.
+
+External device tree is extracted. If this is not the case, please follow the
+README_HOW_TO.txt in ../external-dt.
+
 --------------------------
 3. Prepare optee-os source
 --------------------------
@@ -105,6 +111,12 @@ MANDATORY: You must update sources
 Since OpenSTLinux activates FIP by default, FIP_artifacts directory path must be specified before launching compilation
   - In case of using SOURCES-xxxx.tar.gz of Developer package the FIP_DEPLOYDIR_ROOT must be set as below:
     $> export FIP_DEPLOYDIR_ROOT=$PWD/../../FIP_artifacts
+To enable build of scp-firmware, SCPFW_DIR variable must be set to the root location of scp-firmware source folder
+as specified in the README.HOW_TO.txt of scp-firmware
+    $> export SCPFW_DIR=<scp-firmware location>
+To use the external device tree feature, EXTDT_DIR variable must be set to the root location of external DT
+as specified in the README.HOW_TO.txt of external-dt
+    $> export EXTDT_DIR=<external DT location>
 
 The build results for this component are available in DEPLOYDIR (Default: $PWD/../deploy).
 If needed, this deploy directory can be specified by adding "DEPLOYDIR=<your_deploy_dir_path>" compilation option to the build command line below.
@@ -128,13 +140,13 @@ Please use STM32CubeProgrammer and only tick the ssbl-boot and fip partitions (m
 7. Update Starter Package with optee-os compilation outputs
 ---------------------------
 If not already done, extract the artifacts from Starter Package tarball, for example:
-    # tar xf en.FLASH-stm32mp1-*.tar.xz
+    # tar xf en.FLASH-stm32mp25-*.tar.xz
 
 Move to Starter Package root folder,
-    # cd <starter package root folder>
+    #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original optee-os artifacts first
-    #> rm -rf images/stm32mp1/fip/*
+    #> rm -rf images/stm32mp25/fip/*
 Update Starter Package with new fip artifacts from <FIP_DEPLOYDIR_ROOT>/fip folder:
-    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp1/fip/
+    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp25/fip/
 
 Then the new Starter Package is ready to use for "Image flashing" on board (more information on wiki website https://wiki.st.com/stm32mpu).
