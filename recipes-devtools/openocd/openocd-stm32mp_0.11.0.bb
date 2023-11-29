@@ -10,10 +10,10 @@ SRC_URI = "git://github.com/openocd-org/openocd.git;protocol=https;branch=master
 SRCREV_FORMAT = "openocd"
 SRCREV_openocd = "fdf17dba569ac8aca0771c28b661e3722d776541"
 
-PV = "0.11.0+dev.${SRCPV}-stm32mp25-r1"
+PV = "0.11.0+dev.${SRCPV}-stm32mp25-r1-rc7"
 
 SRC_URI += " \
-    file://0001-v0.11.0-stm32mp25-r1.patch \
+    file://0001-v0.11.0-stm32mp25-r1-beta.patch \
     "
 
 # Use jimtcl master branch to fix RANLIB issue in kirkstone and commit it
@@ -21,5 +21,5 @@ SRC_URI += " \
 # To be removed after a new jimtcl release get used by openocd.
 do_configure:prepend() {
 	git add jimtcl
-	git commit -m "Update jimtcl"
+	git commit --allow-empty -m "Update jimtcl"
 }

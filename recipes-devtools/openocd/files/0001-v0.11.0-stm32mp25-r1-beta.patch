@@ -1,9 +1,8 @@
-From 3ccf91e293add18ff3ef43c5eaf22e0939d70300 Mon Sep 17 00:00:00 2001
+From 718836329861d872b6d28a93161d3b0315b92cb5 Mon Sep 17 00:00:00 2001
 From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
 Date: Fri, 17 Jun 2022 14:14:14 +0200
 Subject: [PATCH] v0.11.0-stm32mp25-r1
 
-Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
 ---
  .gitmodules                                   |    4 +-
  config_subdir.m4                              |    2 +-
@@ -155,10 +154,11 @@ Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
  tcl/target/stm32h7x.cfg                       |    4 +-
  tcl/target/stm32l4x.cfg                       |   69 +-
  tcl/target/stm32l5x.cfg                       |  162 +-
- tcl/target/stm32mp15x.cfg                     |    4 +-
+ tcl/target/stm32mp13x.cfg                     |   13 +-
+ tcl/target/stm32mp15x.cfg                     |   17 +-
  tcl/target/stm32mp25x_cubeide.cfg             |  283 ++
  tcl/target/stm32mp25x_misc.cfg                | 3431 +++++++++++++++++
- tcl/target/stm32mp25x_oe.cfg                  |  117 +
+ tcl/target/stm32mp25x_oe.cfg                  |  143 +
  tcl/target/stm32u5x.cfg                       |  184 +-
  tcl/target/stm32wlx.cfg                       |    4 +-
  tcl/target/stm32x5x_common.cfg                |  154 +
@@ -170,7 +170,7 @@ Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
  tcl/target/xilinx_zynqmp.cfg                  |    2 +-
  tcl/tools/test_cpu_speed.tcl                  |   50 +
  testing/examples/cortex/cm3-ftest.cfg         |    2 +-
- 165 files changed, 9411 insertions(+), 1860 deletions(-)
+ 166 files changed, 9459 insertions(+), 1864 deletions(-)
  create mode 100644 contrib/loaders/flash/gd32vf103/Makefile
  create mode 100644 contrib/loaders/flash/gd32vf103/gd32vf103.c
  create mode 100644 contrib/loaders/flash/gd32vf103/gd32vf103.inc
@@ -13189,11 +13189,53 @@ index 0616df1cb..c43b699d2 100644
 -	# assignment
 -	mmw 0xE0044004 0x00000020 0
 -}
+diff --git a/tcl/target/stm32mp13x.cfg b/tcl/target/stm32mp13x.cfg
+index 0c464b411..d57116c37 100644
+--- a/tcl/target/stm32mp13x.cfg
++++ b/tcl/target/stm32mp13x.cfg
+@@ -83,9 +83,18 @@ proc dbgmcu_enable_debug {} {
+ }
+ 
+ proc toggle_cpu_dbg_claim0 {} {
++	# set few bits in CPU0 DBG_CLAIM to verify write permission
++	# FSBL wrapper will clear CPU0 DBG_CLAIM[0]
+ 	# toggle CPU0 DBG_CLAIM[0]
+-	$::_CHIPNAME.ap1 mww 0xe00d0fa0 1
+-	$::_CHIPNAME.ap1 mww 0xe00d0fa4 1
++	$::_CHIPNAME.ap1 mww 0xe00d0fa0 0x0b
++	set claim [$::_CHIPNAME.ap1 read_memory 0xe00d0fa4 32 1]
++	if {[expr {$claim & 0xfe}] != 0x0a} {
++		error "ERROR: cannot write in DBG_CLAIM. Missing FSBL wrapper?"
++	}
++	if {[expr {$claim & 1}]} {
++		echo "WARNING: FSBL wrapper not detected. Board in dev boot mode?"
++	}
++	$::_CHIPNAME.ap1 mww 0xe00d0fa4 0x0b
+ }
+ 
+ # FIXME: most of handlers below will be removed once reset framework get merged
 diff --git a/tcl/target/stm32mp15x.cfg b/tcl/target/stm32mp15x.cfg
-index 639fbabe0..afd5d2413 100644
+index 639fbabe0..40abed963 100644
 --- a/tcl/target/stm32mp15x.cfg
 +++ b/tcl/target/stm32mp15x.cfg
-@@ -109,8 +109,8 @@ proc toggle_cpu0_dbg_claim0 {} {
+@@ -103,14 +103,23 @@ proc dbgmcu_enable_debug {} {
+ }
+ 
+ proc toggle_cpu0_dbg_claim0 {} {
++	# set few bits in CPU0 DBG_CLAIM to verify write permission
++	# FSBL wrapper will clear CPU0 DBG_CLAIM[0]
+ 	# toggle CPU0 DBG_CLAIM[0]
+-	$::_CHIPNAME.ap1 mww 0xe00d0fa0 1
+-	$::_CHIPNAME.ap1 mww 0xe00d0fa4 1
++	$::_CHIPNAME.ap1 mww 0xe00d0fa0 0x0b
++	set claim [$::_CHIPNAME.ap1 read_memory 0xe00d0fa4 32 1]
++	if {[expr {$claim & 0xfe}] != 0x0a} {
++		error "ERROR: cannot write in DBG_CLAIM. Missing FSBL wrapper?"
++	}
++	if {[expr {$claim & 1}]} {
++		echo "WARNING: FSBL wrapper not detected. Board in dev boot mode?"
++	}
++	$::_CHIPNAME.ap1 mww 0xe00d0fa4 0x0b
  }
  
  proc detect_cpu1 {} {
@@ -16932,10 +16974,10 @@ index 000000000..abce36225
 +}
 diff --git a/tcl/target/stm32mp25x_oe.cfg b/tcl/target/stm32mp25x_oe.cfg
 new file mode 100644
-index 000000000..4def53aac
+index 000000000..9ffde1694
 --- /dev/null
 +++ b/tcl/target/stm32mp25x_oe.cfg
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,143 @@
 +# SPDX-License-Identifier: GPL-2.0-or-later
 +
 +# STMicroelectronics STM32MP25x
@@ -16991,18 +17033,24 @@ index 000000000..4def53aac
 +target create $_CHIPNAME.ap8 mem_ap -dap $_CHIPNAME.dap -ap-num 8
 +
 +# define the first Cortex-A35
-+cti create $_CHIPNAME.cti0 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x80220000
-+target create $_CHIPNAME.a35_0 aarch64 -dap $_CHIPNAME.dap -dbgbase 0x80210000 -ap-num 0 -cti $_CHIPNAME.cti0
++cti create $_CHIPNAME.cti.a35_0 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x80220000
++target create $_CHIPNAME.a35_0 aarch64 -dap $_CHIPNAME.dap -dbgbase 0x80210000 -ap-num 0 -cti $_CHIPNAME.cti.a35_0
 +
 +# define the second Cortex-A35
-+cti create $_CHIPNAME.cti1 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x80320000
-+target create $_CHIPNAME.a35_1 aarch64 -dap $_CHIPNAME.dap -dbgbase 0x80310000 -ap-num 0 -cti $_CHIPNAME.cti1
++cti create $_CHIPNAME.cti.a35_1 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x80320000
++target create $_CHIPNAME.a35_1 aarch64 -dap $_CHIPNAME.dap -dbgbase 0x80310000 -ap-num 0 -cti $_CHIPNAME.cti.a35_1
 +
 +# define the Cortex-M33
 +target create $_CHIPNAME.m33 cortex_m -dap $_CHIPNAME.dap -ap-num 8 -defer-examine
++cti create $_CHIPNAME.cti.m33 -dap $_CHIPNAME.dap -ap-num 8 -baseaddr 0xe0042000
 +
 +# define the Cortex-M0+
 +target create $_CHIPNAME.m0p cortex_m -dap $_CHIPNAME.dap -ap-num 2 -defer-examine
++cti create $_CHIPNAME.cti.m0p -dap $_CHIPNAME.dap -ap-num 2 -baseaddr 0xf0000000
++
++# define the system CTIs
++cti create $_CHIPNAME.cti.sys0 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x80090000
++cti create $_CHIPNAME.cti.sys1 -dap $_CHIPNAME.dap -ap-num 0 -baseaddr 0x800a0000
 +
 +targets $_CHIPNAME.a35_0
 +
@@ -17029,29 +17077,49 @@ index 000000000..4def53aac
 +proc dbgmcu_enable_debug {} {
 +	# set debug enable bits in DBGMCU_CR to get ap2/cm0+ and ap8/cm33 visible
 +	# set DBG_SWD_SEL_N bit in DBGMCU_CR to get ap2/cm0+ on main debug interface
-+	stm32mp25x.ap0 mww 0x80010004 0x17
++	$::_CHIPNAME.ap0 mww 0x80010004 0x17
++}
++
++proc dbgmcu_freeze_watchdogs {} {
++	# Freeze watchdogs on CPU halt
++	$::_CHIPNAME.axi mww 0x4a010008 0x00000001
++	$::_CHIPNAME.axi mww 0x4a01003c 0x00000026
++	$::_CHIPNAME.axi mww 0x4a010040 0x00000038
++	$::_CHIPNAME.axi mww 0x4a010044 0x00000400
++	$::_CHIPNAME.axi mww 0x4a010048 0x00000400
++	$::_CHIPNAME.axi mww 0x4a01004c 0x00000600
 +}
 +
 +proc enable_ap2_debug {} {
 +	# set bits C3LPEN and C3EN in RCC_C3CFGR to enable AP2 and CM0+ clock
-+	target_mmw stm32mp25x.axi 0x54200490 6 0
++	target_mmw $::_CHIPNAME.axi 0x54200490 6 0
 +}
 +
 +proc toggle_a35_0_dbg_claim0 {} {
++	# set few bits in CPU0 DBG_CLAIM to verify write permission
++	# FSBL wrapper will clear CPU0 DBG_CLAIM[0]
 +	# toggle CPU0 DBG_CLAIM[0]
-+	$::_CHIPNAME.ap0 mww 0x80210fa0 1
-+	$::_CHIPNAME.ap0 mww 0x80210fa4 1
++	$::_CHIPNAME.ap0 mww 0x80210fa0 0x0b
++	set claim [$::_CHIPNAME.ap0 read_memory 0x80210fa4 32 1]
++	if {[expr {$claim & 0xfe}] != 0x0a} {
++		error "ERROR: cannot write in DBG_CLAIM. Missing FSBL wrapper?"
++	}
++	if {[expr {$claim & 1}]} {
++		echo "WARNING: FSBL wrapper not detected. Board in dev boot mode?"
++	}
++	$::_CHIPNAME.ap0 mww 0x80210fa4 0x0b
 +}
 +
++$_CHIPNAME.m33   configure -event reset-assert        { }
 +$_CHIPNAME.ap0   configure -event reset-deassert-pre  {adapter deassert srst deassert trst;catch {dap init};catch {$::_CHIPNAME.dap apid 0}}
-+$_CHIPNAME.ap2   configure -event reset-deassert-pre  {dbgmcu_enable_debug;enable_ap2_debug}
++$_CHIPNAME.ap2   configure -event reset-deassert-pre  {dbgmcu_enable_debug;dbgmcu_freeze_watchdogs;enable_ap2_debug}
 +$_CHIPNAME.a35_0 configure -event reset-deassert-pre  {$::_CHIPNAME.a35_0 arp_examine}
-+$_CHIPNAME.a35_1 configure -event reset-deassert-pre  {$::_CHIPNAME.a35_0 arp_examine}
-+$_CHIPNAME.a35_0 configure -event reset-deassert-post {toggle_a35_0_dbg_claim0}
-+$_CHIPNAME.m33   configure -event reset-deassert-post {$::_CHIPNAME.m33 arp_examine}
++$_CHIPNAME.a35_1 configure -event reset-deassert-pre  {$::_CHIPNAME.a35_1 arp_examine}
++$_CHIPNAME.a35_0 configure -event reset-deassert-post {toggle_a35_0_dbg_claim0;if {$halt} {$::_CHIPNAME.a35_0 arp_halt}}
++$_CHIPNAME.m33   configure -event reset-deassert-post {$::_CHIPNAME.m33 arp_examine;$::_CHIPNAME.m33 arp_poll;$::_CHIPNAME.m33 arp_poll;if {$halt} {catch {$::_CHIPNAME.m33 arp_halt}}}
 +$_CHIPNAME.m0p   configure -event reset-deassert-post {$::_CHIPNAME.m0p arp_examine}
 +$_CHIPNAME.ap0   configure -event examine-start       {dap init}
-+$_CHIPNAME.ap2   configure -event examine-start       {enable_ap2_debug;$::_CHIPNAME.m0p arp_examine}
++$_CHIPNAME.ap2   configure -event examine-start       {dbgmcu_freeze_watchdogs;enable_ap2_debug;$::_CHIPNAME.m0p arp_examine}
 +$_CHIPNAME.ap0   configure -event examine-end         {dbgmcu_enable_debug;$::_CHIPNAME.m33 arp_examine}
 diff --git a/tcl/target/stm32u5x.cfg b/tcl/target/stm32u5x.cfg
 index 2c2c0e037..44b51e2b6 100644
@@ -17977,5 +18045,5 @@ index 6f3fa5c81..02c8da11a 100644
  	foreach opcode $halfwords {
  		mwh $addr $opcode
 -- 
-2.25.1
+2.34.1
 
