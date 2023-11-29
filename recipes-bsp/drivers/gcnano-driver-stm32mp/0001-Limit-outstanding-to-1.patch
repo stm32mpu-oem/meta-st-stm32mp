@@ -1,0 +1,33 @@
+From d0026be469fd4020fb5bd57b4b3147150be0d668 Mon Sep 17 00:00:00 2001
+From: Florian LEPELTIER <florian.lepeltier@st.com>
+Date: Wed, 5 Jul 2023 10:53:48 +0200
+Subject: [PATCH 1/2] Limit outstanding to 1
+
+Change-Id: I2814c82254f7cc2594c6947af4f0d5d7be8d1b87
+
+%% original patch: 0001-Limit-outstanding-to-1.patch
+---
+ hal/kernel/arch/gc_hal_kernel_hardware.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/hal/kernel/arch/gc_hal_kernel_hardware.c b/hal/kernel/arch/gc_hal_kernel_hardware.c
+index 30a9b0a..f40e441 100644
+--- a/hal/kernel/arch/gc_hal_kernel_hardware.c
++++ b/hal/kernel/arch/gc_hal_kernel_hardware.c
+@@ -328,6 +328,13 @@ _IdentifyHardwareByDatabase(gckHARDWARE Hardware, gckOS Os,
+         Hardware->maxOutstandingReads = 0x00008;
+     }
+ 
++    if (_IsHardwareMatch(Hardware, gcv8000, 0x6205))
++    {
++        /* Limit maxOutstandingRead for stm32mp2 gpu */
++        Hardware->maxOutstandingReads = 0x00001;
++        gcmkPRINT("[galcore]: Info: Max outstanding limited to 1\n");
++    }
++    
+     gcmkONERROR(gckOS_ReadRegisterEx(Os, Hardware->kernel, 0x00470, &debugControl0));
+ 
+     if (debugControl0 & (1 << 16))
+-- 
+2.25.1
+

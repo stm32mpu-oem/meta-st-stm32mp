@@ -17,10 +17,11 @@ OpenSTLinux SDK must be installed.
 
 * Compile and install the gcnano kernel module
     $> tar xf ##BP##-##PR##.tar.xz
-    $> cd ##GCNANO_TARNAME##
-    $> KERNEL_BUILDDIR="../../kernel/kernel-sources"
+    $> cd ##BP##
+    $> for p in `ls -1 ../*.patch`; do patch -p1 < $p; done
+    $> KERNEL_BUILDDIR="../../linux-stm32mp-<KERNELVERSION>-stm32mp2-alpha-<RELEASE>/build"
     * Select the platform between "st-mp1" or "st-mp2"
-    $> SOC_PLATFORM=<st-mpX>
+    $> SOC_PLATFORM=st-mp<X>
     * Build kernel module
     $> make SOC_PLATFORM=${SOC_PLATFORM} DEBUG=0 O="${KERNEL_BUILDDIR}" M="${PWD}" AQROOT="${PWD}" -C ${KERNEL_BUILDDIR}
 
@@ -51,7 +52,7 @@ If not already done, extract the artifacts from Starter Package tarball, for exa
     # tar xf en.FLASH-stm32mp1-*.tar.xz
 
 Move to Starter Package root folder,
-    # cd <starter package root folder>
+    #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original gcnano kernel module artifacts first
     #> echo "*** Section under construction ***"
 

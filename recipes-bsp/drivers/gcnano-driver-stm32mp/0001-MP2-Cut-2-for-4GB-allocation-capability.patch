@@ -1,0 +1,26 @@
+From 3bb370ce80ecfa7b8ba8f4885fdb76c60b40ba0e Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Tue, 24 Oct 2023 10:28:42 +0200
+Subject: [PATCH] MP2 Cut 2: for 4GB allocation capability
+
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ .../os/linux/kernel/platform/st/gc_hal_kernel_platform_mp2.c    | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/hal/os/linux/kernel/platform/st/gc_hal_kernel_platform_mp2.c b/hal/os/linux/kernel/platform/st/gc_hal_kernel_platform_mp2.c
+index e794047..c698a5d 100644
+--- a/hal/os/linux/kernel/platform/st/gc_hal_kernel_platform_mp2.c
++++ b/hal/os/linux/kernel/platform/st/gc_hal_kernel_platform_mp2.c
+@@ -236,6 +236,8 @@ _AdjustParam(IN gcsPLATFORM * Platform, OUT gcsMODULE_PARAMETERS *Args)
+         }
+         Args->registerBases[core] = res->start;
+         Args->registerSizes[core] = resource_size(res);
++        /* force to be complaint with 4GB address limit */
++        Platform->flagBits |= gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS;
+ 
+     /* Contiguous area */
+         np = of_parse_phandle(dev->of_node, "contiguous-area", 0);
+-- 
+2.34.1
+

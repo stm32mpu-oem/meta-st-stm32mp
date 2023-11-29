@@ -1,0 +1,42 @@
+From b6f7c2a6d814841ce32669000d74601e3449f52b Mon Sep 17 00:00:00 2001
+From: Florian LEPELTIER <florian.lepeltier@st.com>
+Date: Wed, 5 Jul 2023 16:18:44 +0200
+Subject: [PATCH 2/2] NPU: limit VIP SRAM to first half part
+
+Change-Id: I15da477efb5cd1c1e77f244ab1de94c2484edd7d
+
+%% original patch: 0001-NPU-limit-VIP-SRAM-to-first-half-part.patch
+---
+ hal/inc/gc_feature_database.h        | 2 +-
+ hal/kernel/inc/gc_feature_database.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hal/inc/gc_feature_database.h b/hal/inc/gc_feature_database.h
+index 20ddb19..fb5ab96 100644
+--- a/hal/inc/gc_feature_database.h
++++ b/hal/inc/gc_feature_database.h
+@@ -4331,7 +4331,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
+         0x40, /* gcFEATURE_VALUE_NNAccumBufferDepth */
+         0x400, /* gcFEATURE_VALUE_TPEngine_PwlLUTCount */
+         0x10, /* gcFEATURE_VALUE_TPEngine_PwlLUTSize */
+-        0x20000, /* gcFEATURE_VALUE_VIP_SRAM_SIZE */
++        0x10000, /* gcFEATURE_VALUE_VIP_SRAM_SIZE */
+         {0x0, }, /* gcFEATURE_VALUE_VIP_SRAM_SIZE_ARRAY */
+         0x1, /* gcFEATURE_VALUE_TPEngine_CoreCount */
+         0x0, /* gcFEATURE_VALUE_AXI_SRAM_SIZE */
+diff --git a/hal/kernel/inc/gc_feature_database.h b/hal/kernel/inc/gc_feature_database.h
+index c3816e6..79553ee 100644
+--- a/hal/kernel/inc/gc_feature_database.h
++++ b/hal/kernel/inc/gc_feature_database.h
+@@ -4373,7 +4373,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
+         0x40, /* gcFEATURE_VALUE_NNAccumBufferDepth */
+         0x400, /* gcFEATURE_VALUE_TPEngine_PwlLUTCount */
+         0x10, /* gcFEATURE_VALUE_TPEngine_PwlLUTSize */
+-        0x20000, /* gcFEATURE_VALUE_VIP_SRAM_SIZE */
++        0x10000, /* gcFEATURE_VALUE_VIP_SRAM_SIZE */
+         {0x0, }, /* gcFEATURE_VALUE_VIP_SRAM_SIZE_ARRAY */
+         0x1, /* gcFEATURE_VALUE_TPEngine_CoreCount */
+         0x0, /* gcFEATURE_VALUE_AXI_SRAM_SIZE */
+-- 
+2.25.1
+
