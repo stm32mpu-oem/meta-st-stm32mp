@@ -1,0 +1,43 @@
+From 7f48017794a8270d5382d08422263c7a5f5926fc Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Tue, 26 Sep 2023 10:45:03 +0200
+Subject: [PATCH 2/2] USBPD_DRP_UCSI: correct build issue
+
+For libmetal, the inclusion of cmake is not valid because:
+- need to call the correct cmake (better to use ${CMAKE_COMMAND})
+- need to use simple ' for G option (if not some character is added)
+
+For cortex m33, gcc arm none eabi 11.3 doesn't support the option -fcyclomatic-complexity
+
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ .../Demonstrations/USBPD_DRP_UCSI/CMakeLists.txt                | 2 +-
+ .../USBPD_DRP_UCSI/util/cortex-m33-stm32mp2.cmake               | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/CMakeLists.txt b/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/CMakeLists.txt
+index 026353be..f1d74455 100644
+--- a/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/CMakeLists.txt
++++ b/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/CMakeLists.txt
+@@ -310,7 +310,7 @@ include_directories(APPLICATION_INCLUDE ${BASE_DIR}/../../../../Middlewares/Thir
+ set(SOURCE_FILES ${APPLICATION_SRC} ${LINKER_SCRIPT} )
+ add_custom_target(TARGET
+     ALL
+-	COMMAND cmake -S ../../../../../Middlewares/Third_Party/OpenAMP/libmetal/ -B libmetal  -G"Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=cmake/platforms/stm32mp-threadx-gcc.cmake
++	COMMAND ${CMAKE_COMMAND} -S ${BASE_DIR}/../../../../Middlewares/Third_Party/OpenAMP/libmetal/ -B libmetal  -G'Unix Makefiles' -DCMAKE_TOOLCHAIN_FILE=cmake/platforms/stm32mp-threadx-gcc.cmake
+ )
+ link_directories(${CMAKE_SOURCE_DIR}/../../../../Middlewares/ST/STM32_USBPD_Library/Core/lib)
+ add_executable(${PROJECT_NAME}.elf ${SOURCE_FILES} ${LINKER_SCRIPT})
+diff --git a/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/util/cortex-m33-stm32mp2.cmake b/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/util/cortex-m33-stm32mp2.cmake
+index cee5e6ca..2b3a553b 100644
+--- a/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/util/cortex-m33-stm32mp2.cmake
++++ b/Projects/STM32MP257F-EV1/Demonstrations/USBPD_DRP_UCSI/util/cortex-m33-stm32mp2.cmake
+@@ -3,4 +3,4 @@ set(WARNING_FLAGS "-Wall")
+ set(CPU_OPTIONS -mthumb -mcpu=cortex-m33)
+ set(CPU "cortex-m33")
+ set(CPU_OPTIONS "-mcpu=${CPU} -mthumb")
+-set(COMMON_COMPILE_FLAGS "${CPU_OPTIONS} -ffunction-sections -g3 -fstack-usage -fcyclomatic-complexity --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -Os")
++set(COMMON_COMPILE_FLAGS "${CPU_OPTIONS} -ffunction-sections -g3 -fstack-usage --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -Os")
+-- 
+2.34.1
+

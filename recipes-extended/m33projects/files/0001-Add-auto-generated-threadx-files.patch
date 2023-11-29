@@ -1,0 +1,113 @@
+From b9c04d43b5c2c6b7af640a2d624373c00d992fd2 Mon Sep 17 00:00:00 2001
+From: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+Date: Tue, 26 Sep 2023 10:44:44 +0200
+Subject: [PATCH 1/2] Add auto-generated threadx files
+
+Signed-off-by: Christophe Priouzeau <christophe.priouzeau@foss.st.com>
+---
+ .../lib/system/threadx/threadx_device.c       | 31 +++++++++++++++++++
+ .../lib/system/threadx/threadx_init.c         | 28 +++++++++++++++++
+ .../lib/system/threadx/threadx_shmem.c        | 18 +++++++++++
+ 3 files changed, 77 insertions(+)
+ create mode 100644 Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_device.c
+ create mode 100644 Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_init.c
+ create mode 100644 Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_shmem.c
+
+diff --git a/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_device.c b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_device.c
+new file mode 100644
+index 00000000..e64cf93e
+--- /dev/null
++++ b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_device.c
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (c) 2022 STMicroelectronnics. All rights reserved.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++/*
++ * @file	threadx/device.c
++ * @brief	ThreadX device operations.
++ */
++
++#include <metal/device.h>
++#include <metal/sys.h>
++#include <metal/utilities.h>
++
++int metal_generic_dev_sys_open(struct metal_device *dev)
++{
++	struct metal_io_region *io;
++	unsigned int i;
++
++	/* map I/O memory regions */
++	for (i = 0; i < dev->num_regions; i++) {
++		io = &dev->regions[i];
++		if (!io->size)
++			break;
++		metal_sys_io_mem_map(io);
++	}
++
++	return 0;
++}
++
+diff --git a/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_init.c b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_init.c
+new file mode 100644
+index 00000000..7a2b4fef
+--- /dev/null
++++ b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_init.c
+@@ -0,0 +1,28 @@
++/*
++ * Copyright (c) 2022 STMicroelectronnics. All rights reserved.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++/*
++ * @file	threadx/init.c
++ * @brief	ThreadX libmetal initialization.
++ */
++
++#include <metal/sys.h>
++#include <metal/utilities.h>
++#include <metal/device.h>
++
++struct metal_state _metal;
++
++int metal_sys_init(const struct metal_init_params *params)
++{
++	metal_unused(params);
++	metal_bus_register(&metal_generic_bus);
++	return 0;
++}
++
++void metal_sys_finish(void)
++{
++	metal_bus_unregister(&metal_generic_bus);
++}
+diff --git a/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_shmem.c b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_shmem.c
+new file mode 100644
+index 00000000..6d14414c
+--- /dev/null
++++ b/Middlewares/Third_Party/OpenAMP/libmetal/lib/system/threadx/threadx_shmem.c
+@@ -0,0 +1,18 @@
++/*
++ * Copyright (c) 2022 STMicroelectronnics. All rights reserved.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++/*
++ * @file	threadx/shmem.c
++ * @brief	ThreadX libmetal shared memory handling.
++ */
++
++#include <metal/shmem.h>
++
++int metal_shmem_open(const char *name, size_t size,
++		     struct metal_io_region **io)
++{
++	return metal_shmem_open_generic(name, size, io);
++}
+-- 
+2.34.1
+

@@ -1,62 +1,69 @@
 #!/bin/sh -
 
 autodetect_board() {
-if [ ! -d /proc/device-tree/ ];
-then
-    echo "Proc Device tree are not available, Could not detect on which board we are" > /dev/kmsg
-    exit 1
-fi
+    if [ ! -d /proc/device-tree/ ];
+    then
+        echo "Proc Device tree are not available, Could not detect on which board we are" > /dev/kmsg
+        exit 1
+    fi
 
-#search on device tree compatible entry the board type
-if $(grep -q "stm32mp257f-valid3" /proc/device-tree/compatible) ;
-then
-    board="STM32MP25_M33_VALID3"
-else
-    echo "Board is not a VALID3 BOARD" > /dev/kmsg
-    exit 1
-fi
+    LIST="##BOARDS_LIST##"
+    board=""
+    for b in $LIST; do
+        board_lower=$(echo $b | tr '[:upper:]' '[:lower:]')
+        if $(grep -q "$board_lower" /proc/device-tree/compatible) ;
+        then
+            echo "Board $board_lower is compatible"
+            board=$b
+            break
+        fi
+    done
+    if [ -z "$board" ]; then
+        echo "Board is not a valid BOARD (stm32mp257f-dk, stm32mp257f-ev1)" > /dev/kmsg
+        exit 0
+    fi
 }
 
-copy_default_M33_fw() {
-#Test if ${board}_@default_fw@.elf is existing
-if [ -z "$(find @userfs_mount_point@/examples/* -name ${board}_@default_fw@.elf)" ]; then
-    echo "The default copro example ${board}_@default_fw@ doesn't exist" > /dev/kmsg
-    exit 1
-else
-    #copy ${board}_@default_fw@.elf into /lib/firmware/
-    cp $(find @userfs_mount_point@/examples/* -name ${board}_@default_fw@.elf) /lib/firmware/.
-fi
+find_default_project() {
+    DEFAULT_PROJECT=""
+    if [ -n "$board" ]; then
+        if [ -z "$(find @userfs_mount_point@/$board/ -name default)" ]; then
+            echo "The default copro example for ${board} doesn't exist" > /dev/kmsg
+            exit 1
+        else
+            default_path_project=$(find @userfs_mount_point@/$board/ -name default)
+            DEFAULT_PROJECT=$(dirname $default_path_project)
+        fi
+    fi
 }
 
 firmware_load_start() {
-# Change the name of the firmware
-echo -n ${board}_@default_fw@.elf > /sys/class/remoteproc/remoteproc0/firmware
-
-# Change path to found firmware
-#echo -n /home/root >/sys/module/firmware_class/parameters/path
-
-# Restart firmware
-echo start >/sys/class/remoteproc/remoteproc0/state
-
-echo "Booting fw image ${board}_@default_fw@.elf" > /dev/kmsg
+    if [ -n "$DEFAULT_PROJECT" ]; then
+        cd $DEFAULT_PROJECT
+        ./fw_cortex_m33.sh start
+        echo "Booting fw image for ${board}" > /dev/kmsg
+    fi
 }
 
 firmware_load_stop() {
-# Stop the firmware
-if [ $(cat /sys/class/remoteproc/remoteproc0/state) == "running" ]; then
-    echo stop >/sys/class/remoteproc/remoteproc0/state
-    echo "Stopping fw image ${board}_@default_fw@.elf" > /dev/kmsg
-else
-    echo "Default copro already stopped" > /dev/kmsg
-fi
+    # Stop the firmware
+    if [ "$(cat /sys/class/remoteproc/remoteproc0/state)" = "running" ]; then
+        if [ -n "$DEFAULT_PROJECT" ]; then
+            cd $DEFAULT_PROJECT
+            ./fw_cortex_m33.sh stop
+        fi
+        echo "Stopping fw image ${board}" > /dev/kmsg
+    else
+        echo "Default copro already stopped" > /dev/kmsg
+    fi
 }
 
 board=""
 autodetect_board
+find_default_project
 
 case "$1" in
 start)
-    copy_default_M33_fw
     firmware_load_stop
     firmware_load_start
     ;;
