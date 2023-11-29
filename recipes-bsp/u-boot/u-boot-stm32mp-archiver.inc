@@ -95,13 +95,11 @@ uboot-\$(1):: configure-\$(1)
 		\$(MAKE) -C \$(SRC_PATH) ${UBOOT_MAKE_TARGET} \\
 			O=\$(BLD_PATH)/\$(1) \\
 			DEVICE_TREE=\$(dt) \\
-			DEVICE_TREE_EXT=\$(dt).dtb || exit 1 ; \\
+			DEVICE_TREE_EXT=\$(dt).dtb  \\
+			EXT_DTS=\$(EXTDT_DIR)/u-boot|| exit 1 ; \\
 		cp -f \$(BLD_PATH)/\$(1)/\$(3) \$(DEPLOYDIR)/u-boot-\$(dt).\$(shell echo \$(3) | cut -d'.' -f2) || exit 1 ; \\
 		if [ -f \$(BLD_PATH)/\$(1)/\$(shell echo \$(3) | cut -d'.' -f1).stm32 ]; then \\
 			cp -f \$(BLD_PATH)/\$(1)/\$(shell echo \$(3) | cut -d'.' -f1).stm32 \$(DEPLOYDIR)/u-boot-\$(dt).stm32 ; \\
-		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)/${SPL_BINARY_STM32} ]; then \\
-			cp -f \$(BLD_PATH)/\$(1)/${SPL_BINARY_STM32} \$(DEPLOYDIR)/${SPL_BINARYNAME}-\$(dt); \\
 		fi ; \\
 	)
 endef
@@ -117,9 +115,6 @@ deploy-\$(1):: uboot-\$(1)
 		fi ; \\
 		if [ -f \$(BLD_PATH)/\$(1)/${UBOOT_ELF} ]; then \\
 			cp -f \$(BLD_PATH)/\$(1)/${UBOOT_ELF} \$(DEPLOYDIR)/debug/u-boot\$(strip \$(foreach soc,${STM32MP_SOC_NAME},\$(if \$(findstring \$(soc),\$(dt)),-\$(soc),))).${UBOOT_ELF_SUFFIX} ; \\
-		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)/${SPL_ELF} ]; then \\
-			cp -f \$(BLD_PATH)/\$(1)/${SPL_ELF} \$(DEPLOYDIR)/debug/${SPL_ELF_NAME}\$(strip \$(foreach soc,${STM32MP_SOC_NAME},\$(if \$(findstring \$(soc),\$(dt)),-\$(soc),))); \\
 		fi ; \\
 	)
 endef
@@ -154,18 +149,18 @@ help:
 	@echo "  Do not forget to set FIP deploydir folders (such as FIP_DEPLOYDIR_ROOT) to provide path to needed binaries"
 	@echo
 	@echo "Available targets:"
-	@echo "  all   : build U-Boot binaries for defined config(s)"
+	@echo "  all   : build U-Boot binaries for defined config(s) + fip"
+	@echo "  uboot : build U-Boot binaries for defined config(s)"
 	@echo "  fip   : build FIP binaries"
 	@echo "  clean : clean build directories from generated files"
 
 all: \$(DEPS)
 
+uboot: \$(deploy-targets)
+
 clean:
-	@for config in \$(UBOOT_CONFIGS); do \\
-		uboot_type=\$\$(echo \$\$config | cut -d',' -f2) ; \\
-		echo "Removing \$(BLD_PATH)/\$\$uboot_type ..." ; \\
-		rm -rf \$(BLD_PATH)/\$\$uboot_type ; \\
-	done
+	@echo "Removing \$(BLD_PATH)/* ..."
+	@rm -rf \$(BLD_PATH)/*
 	@echo "Removing \$(DEPLOYDIR) ..."
 	@rm -rf \$(DEPLOYDIR)
 	@echo

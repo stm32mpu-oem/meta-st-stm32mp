@@ -4,7 +4,9 @@ HOMEPAGE = "http://www.denx.de/wiki/U-Boot/WebHome"
 SECTION = "bootloaders"
 
 LICENSE = "GPL-2.0-or-later"
-LIC_FILES_CHKSUM = "file://Licenses/README;md5=5a7450c57ffe5ae63fd732446b988025"
+LIC_FILES_CHKSUM = "file://Licenses/README;md5=2ca5f2c35c8cc335f0a19756634782f1"
+
+CVE_PRODUCT = "denx:u-boot"
 
 DEPENDS += "dtc-native bc-native"
 DEPENDS += "flex-native bison-native"
@@ -13,20 +15,27 @@ DEPENDS += "python3-setuptools-native"
 COMPATIBLE_MACHINE = "(stm32mpcommon)"
 
 SRC_URI = "git://github.com/u-boot/u-boot.git;protocol=https;branch=master"
-SRCREV  = "d80bb749fab53da72c4a0e09b8c2d2aaa3103c91"
+SRCREV  = "4debc57a3da6c3f4d3f89a637e99206f4cea0a96"
 
 SRC_URI += "\
-    file://0001-v2021.10-stm32mp25-alpha-r1.patch \
+    file://0001-v2022.10-stm32mp25-beta.patch \
     \
     file://0099-Add-external-var-to-allow-build-of-new-devicetree-fi.patch \
 "
 
 # debug and trace
 SRC_URI += "${@bb.utils.contains('ST_UBOOT_DEBUG_TRACE', '1', '', 'file://0098-silent_mode.patch', d)}"
+SRC_URI += "${@bb.utils.contains('ST_UBOOT_DEBUG_TRACE', '1', '', 'file://fragment-01-silent_mode.cfg;subdir=fragments/features', d)}"
 
-U_BOOT_VERSION = "v2021.10"
-U_BOOT_SUBVERSION = "stm32mp25"
-U_BOOT_RELEASE = "alpha-r1"
+# optional config
+SRC_URI += "${@bb.utils.contains('UBOOT_SIGN_ENABLE', '1', 'file://fragment-02-signature.cfg;subdir=fragments/features', '', d)}"
+
+# efi config
+SRC_URI += "${@bb.utils.contains('MACHINE_FEATURES', 'efi', 'file://fragment-03-efi.cfg;subdir=fragments/features', '', d)}"
+
+U_BOOT_VERSION = "v2022.10"
+U_BOOT_SUBVERSION = "stm32mp"
+U_BOOT_RELEASE = "beta-r1"
 
 PV = "${U_BOOT_VERSION}-${U_BOOT_SUBVERSION}-${U_BOOT_RELEASE}"
 
@@ -42,8 +51,8 @@ S = "${WORKDIR}/git"
 # ---------------------------------
 BBCLASSEXTEND = "devupstream:target"
 
-SRC_URI:class-devupstream = "git://github.com/STMicroelectronics/u-boot.git;protocol=https;branch=${ARCHIVER_ST_BRANCH}"
-SRCREV:class-devupstream = "0000000000000000000000000000000000000000"
+SRC_URI:class-devupstream = "git://github.com/PRG-MPU-ALPHA/u-boot.git;protocol=https;branch=v2022.10-stm32mp25-beta"
+SRCREV:class-devupstream = "41c24dbdcf9427fd3b35fd1385c411bfd4a0a2b7"
 
 # ---------------------------------
 # Configure default preference to manage dynamic selection between tarball and github

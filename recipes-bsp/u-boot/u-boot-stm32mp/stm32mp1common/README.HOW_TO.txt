@@ -24,9 +24,6 @@ If you have never configured you git configuration:
     $ git config --global user.name "your_name"
     $ git config --global user.email "your_email@example.com"
 
-External device tree is extracted. If this is not the case, please follow the
-README_HOW_TO.txt in ../external-dt.
-
 ---------------------------------------
 2. Initialize cross-compilation via SDK
 ---------------------------------------
@@ -44,7 +41,7 @@ Warning: the environment are valid only on the shell session where you have
 3. Prepare U-Boot source
 ------------------------
 If not already done, extract the sources from Developer Package tarball, for example:
-    $ tar xf en.SOURCES-stm32mp2-*.tar.xz
+    $ tar xf en.SOURCES-stm32mp1-*.tar.xz
 
 In the U-Boot source directory (sources/*/##BP##-##PR##),
 you have one U-Boot source tarball, the patches and one Makefile:
@@ -111,11 +108,7 @@ To compile U-Boot source code, first move to U-Boot source:
 
 5.1 Compilation for one target
 ------------------------------
-To use the external device tree feature, EXTDT_DIR variable must be set to the root location of external DT
-as specified in the README.HOW_TO.txt of external-dt
-    $> export EXTDT_DIR=<external DT location>
-
-    STM32MP series is selected by defconfig: stm32mp25_defconfig
+    STM32MP series is selected by defconfig: stm32mp13_defconfig or stm32mp15_defconfig
     Board is selected by the device tree name to use
 
     see <U-Boot source>/doc/board/st/stm32mp1.rst for details
@@ -125,10 +118,13 @@ as specified in the README.HOW_TO.txt of external-dt
 
     example:
 
-    a) trusted boot on STM32MP257F-EV1
-      $ make stm32mp25_defconfig
-      $ make DEVICE_TREE=stm32mp257f-ev1 all
+    a) trusted boot on STM32MP157C-EV1
+      $ make stm32mp15_defconfig
+      $ make DEVICE_TREE=stm32mp157c-ev1 all
 
+    b) trusted boot on STM32MP135F-DK
+      $ make stm32mp13_defconfig
+      $ make DEVICE_TREE=stm32mp135f-dk all
 
     then u-boot.dtb and u-boot-nodtb.bin can be added in the an existing FIP file with:
       $ fiptool update --verbose \
@@ -158,7 +154,7 @@ To compile U-Boot source code for a specific config:
   - Compile default U-Boot configuration but applying specific devicetree(s):
     $ make -f $PWD/../Makefile.sdk DEVICETREE="<devicetree1> <devicetree2>" all
   - Compile for a specific U-Boot configuration:
-    $ make -f $PWD/../Makefile.sdk UBOOT_CONFIG=trusted UBOOT_DEFCONFIG=stm32mp25_defconfig UBOOT_BINARY=u-boot.dtb DEVICETREE=stm32mp257f-ev1 all
+    $ make -f $PWD/../Makefile.sdk UBOOT_CONFIG=trusted UBOOT_DEFCONFIG=stm32mp15_defconfig UBOOT_BINARY=u-boot.dtb DEVICETREE=stm32mp157f-dk2 all
 To compile U-Boot source code and overwrite the default FIP artifacts with built artifacts:
     $> make -f $PWD/../Makefile.sdk DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/u-boot all
 
@@ -171,13 +167,13 @@ Please use STM32CubeProgrammer and only tick the ssbl-boot and fip partition (mo
 7. Update Starter Package with U-Boot compilation outputs
 ---------------------------
 If not already done, extract the artifacts from Starter Package tarball, for example:
-    # tar xf en.FLASH-stm32mp25-*.tar.xz
+    # tar xf en.FLASH-stm32mp1-*.tar.xz
 
 Move to Starter Package root folder,
     #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original U-Boot artifacts first
-    #> rm -rf images/stm32mp25/fip/*
+    #> rm -rf images/stm32mp1/fip/*
 Update Starter Package with new fip artifacts from <FIP_DEPLOYDIR_ROOT>/fip folder:
-    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp25/fip/
+    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp1/fip/
 
 Then the new Starter Package is ready to use for "Image flashing" on board (more information on wiki website https://wiki.st.com/stm32mpu).

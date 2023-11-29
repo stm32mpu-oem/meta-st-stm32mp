@@ -171,13 +171,13 @@ Please use STM32CubeProgrammer and only tick the ssbl-boot and fip partition (mo
 7. Update Starter Package with U-Boot compilation outputs
 ---------------------------
 If not already done, extract the artifacts from Starter Package tarball, for example:
-    # tar xf en.FLASH-stm32mp25-*.tar.xz
+    # tar xf en.FLASH-##MACHINE##-*.tar.xz
 
 Move to Starter Package root folder,
     #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original U-Boot artifacts first
-    #> rm -rf images/stm32mp25/fip/*
+    #> rm -rf images/##MACHINE##/fip/*
 Update Starter Package with new fip artifacts from <FIP_DEPLOYDIR_ROOT>/fip folder:
-    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp25/fip/
+    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/##MACHINE##/fip/
 
 Then the new Starter Package is ready to use for "Image flashing" on board (more information on wiki website https://wiki.st.com/stm32mpu).

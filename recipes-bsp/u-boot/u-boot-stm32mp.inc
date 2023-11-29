@@ -1,6 +1,5 @@
 require recipes-bsp/u-boot/u-boot.inc
-
-CVE_PRODUCT = "denx:u-boot"
+inherit external-dt
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/u-boot-stm32mp:"
 
@@ -8,18 +7,11 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/u-boot-stm32mp:"
 EXTERNALSRC_BUILD:pn-${PN} = "${WORKDIR}/build"
 B = "${WORKDIR}/build"
 
-# Define dedicated var to configure SPL binary name to override U-Boot default
-# configuration. By this way we allow to mix configuration with and without SPL
-# binary generation without trouble with binary existence.
-SPL_BINARY_STM32 = "spl/u-boot-spl.stm32"
-SPL_BINARYNAME = "${@os.path.basename(d.getVar("SPL_BINARY_STM32"))}"
-SPL_BINARYROOT = "${@d.getVar('SPL_BINARY_STM32').split('.')[0]}"
+EXTRA_OEMAKE += "${@bb.utils.contains('EXTERNAL_DT_ENABLED', '1', 'EXT_DTS=${STAGING_EXTDT_DIR}/u-boot', '', d)}"
 
 # Configure for debug elf
 ELF_DEBUG_ENABLE ?= "1"
 UBOOT_ELF = "${@'u-boot' if d.getVar('ELF_DEBUG_ENABLE') == '1' else ''}"
-SPL_ELF = "${@'${SPL_BINARYROOT}' if d.getVar('ELF_DEBUG_ENABLE') == '1' else ''}"
-SPL_ELF_NAME  = "${@os.path.basename(d.getVar("SPL_ELF"))}.elf"
 
 # Init UBOOT_DEVICETREE list if not configured
 UBOOT_DEVICETREE ?= ""
@@ -59,40 +51,6 @@ base_do_unpack:append () {
             import shutil
             shutil.move(s, ubootsrc)
             os.symlink(ubootsrc, s)
-}
-
-# -----------------------------------------------------------------------------
-# Prepend configure to handle specific configuration (here fip)
-#
-do_configure:prepend() {
-    if [ -n "${UBOOT_CONFIG}" ]; then
-        unset i j
-        for config in ${UBOOT_MACHINE}; do
-            if [ -f "${S}/configs/${config}" ]; then
-                # Create copy of original defconfig
-                cp -f "${S}/configs/${config}" "${WORKDIR}/"
-                i=$(expr $i + 1)
-                for binary in ${UBOOT_BINARIES}; do
-                    j=$(expr $j + 1)
-                    if [ $j -eq $i ]; then
-                        binarysuffix=$(echo ${binary} | cut -d'.' -f2)
-                        # Make sure to select STM32IMAGE if requested
-                        if [ "${binarysuffix}" = "stm32" ]; then
-                            if ! grep -q 'CONFIG_STM32MP15x_STM32IMAGE=y' "${S}/configs/${config}"; then
-                                echo "CONFIG_STM32MP15x_STM32IMAGE=y" >> "${S}/configs/${config}"
-                            fi
-                        fi
-                        if [ "${UBOOT_SIGN_ENABLE}" = "1" ]; then
-                            if ! grep -q 'CONFIG_FIT_SIGNATURE=y' "${S}/configs/${config}"; then
-                                echo "CONFIG_FIT_SIGNATURE=y" >> "${S}/configs/${config}"
-                            fi
-                        fi
-                    fi
-                done
-                unset j
-            fi
-        done
-    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -181,11 +139,6 @@ do_compile:append() {
                                 fi
                             done
                             unset k
-                            # As soon as SPL binary exists, copy it with specific binary_type name
-                            # This allow to mix u-boot configuration, with and without SPL
-                            if [ -f "${B}/${config}/${SPL_BINARY_STM32}" ]; then
-                                install -m 644 ${B}/${config}/${SPL_BINARY_STM32} ${B}/${config}/${SPL_BINARYNAME}-${devicetree}
-                            fi
                         done
                     fi
                 done
@@ -243,11 +196,6 @@ do_deploy:append() {
                                     fi
                                     # Install u-boot binary
                                     install -m 644 ${B}/${config}/u-boot-${devicetree}.${binarysuffix} ${DEPLOYDIR}${SUBFOLDER}/
-                                    # As soon as SPL binary exists, install it
-                                    # This allow to mix u-boot configuration, with and without SPL
-                                    if [ -f "${B}/${config}/${SPL_BINARYNAME}-${devicetree}" ]; then
-                                        install -m 644 ${B}/${config}/${SPL_BINARYNAME}-${devicetree} ${DEPLOYDIR}${SUBFOLDER}/
-                                    fi
                                     # Init soc suffix
                                     soc_suffix=""
                                     if [ -n "${STM32MP_SOC_NAME}" ]; then
@@ -261,9 +209,6 @@ do_deploy:append() {
                                     fi
                                     if [ -n "${UBOOT_ELF}" ]; then
                                         install -m 644 ${B}/${config}/${UBOOT_ELF} ${DEPLOYDIR}${SUBFOLDER}/debug/u-boot${soc_suffix}.${UBOOT_ELF_SUFFIX}
-                                    fi
-                                    if [ -n "${SPL_ELF}" ] && [ -f "${B}/${config}/${SPL_ELF}" ]; then
-                                        install -m 644 ${B}/${config}/${SPL_ELF} ${DEPLOYDIR}${SUBFOLDER}/debug/${SPL_ELF_NAME}${soc_suffix}
                                     fi
 
                                     if [ "${UBOOT_SIGN_ENABLE}" = "1" -a -n "${UBOOT_DTB_BINARY}" ] ; then
@@ -281,14 +226,10 @@ do_deploy:append() {
                                             install u-boot-${MACHINE}-${devicetree}-${PV}-${PR}.dtb ${DEPLOYDIR}/
                                             install u-boot-${MACHINE}-${devicetree}.dtb ${DEPLOYDIR}/
                                         fi
-
                                         if [ -f "${UBOOT_NODTB_BINARY}" ]; then
                                             install u-boot-nodtb-${soc_suffix}-${PV}-${PR}.bin ${DEPLOYDIR}/
                                         fi
-
-
                                     fi
-
                                 done
                             fi
                         done
@@ -309,12 +250,15 @@ do_deploy:append() {
         namewithoutsignature=`echo $ubootdevicetree | sed "s/\.dtb/-without-signature.dtb/g"`
         namewithsignature=`echo $ubootdevicetree | sed "s/\.dtb/-with-signature.dtb/g"`
         mv $ubootdevicetree $namewithoutsignature
-        #get name of kernel uboot devicetree
-        nameonkernel=`ls -1 ${DEPLOY_DIR_IMAGE}/kernel/u-boot-${MACHINE}*.dtb | head -n 1`
-        cp $nameonkernel $namewithsignature
-        cp $nameonkernel $ubootdevicetree
+        if [ -e ${B}/fitImage-linux ]; then
+            #get name of devicetree with signature
+            namedtb="${B}/fitImage-linux"
+            cp $namedtb $namewithsignature
+            cp $namedtb $ubootdevicetree
+        else
+            bbfatal "no fitImage-linux available"
+        fi
     fi
-
 }
 
 # ---------------------------------------------------------------------
@@ -324,3 +268,7 @@ INSANE_SKIP:${PN} += "ldflags"
 # Avoid QA Issue: ELF binary has relocations in .text
 # (uboot no need -fPIC option : remove check)
 INSANE_SKIP:${PN} += "textrel"
+# ---------------------------------------------------------------------
+# Avoid QA Issue: contains reference to TMPDIR [buildpaths]
+INSANE_SKIP:${PN} += "buildpaths"
+
