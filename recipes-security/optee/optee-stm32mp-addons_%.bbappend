@@ -1,8 +1,15 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-# Temporary override, must be reported on meta-st-openstlinux
-EXTRA_OEMAKE:remove = " TA_DEV_KIT_DIR=${STAGING_INCDIR}/optee/export-user_ta "
-
-EXTRA_OEMAKE:append:stm32mp1common = " TA_DEV_KIT_DIR=${STAGING_INCDIR}/optee/export-user_ta "
-EXTRA_OEMAKE:append:stm32mp2common = " TA_DEV_KIT_DIR=${STAGING_INCDIR}/optee/export-user_ta_arm64 "
+EXTRA_OEMAKE:stm32mp1common += " \
+    TA_DEV_KIT_DIR=${STAGING_INCDIR}/optee/export-user_ta \
+    OPTEE_CLIENT_EXPORT=${STAGING_DIR_HOST}${prefix} \
+    HOST_CROSS_COMPILE=${TARGET_PREFIX} \
+    TA_CROSS_COMPILE=${TARGET_PREFIX} \
+"
+EXTRA_OEMAKE:stm32mp2common += " \
+    TA_DEV_KIT_DIR=${STAGING_INCDIR}/optee/export-user_ta_arm64 \
+    OPTEE_CLIENT_EXPORT=${STAGING_DIR_HOST}${prefix} \
+    HOST_CROSS_COMPILE=${TARGET_PREFIX} \
+    TA_CROSS_COMPILE=${TARGET_PREFIX} \
+"
 
