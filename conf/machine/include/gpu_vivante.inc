@@ -1,10 +1,8 @@
 # =========================================================================
 # GPU
 # =========================================================================
-GPU_VSI_USERLAND_LIBRARIES_PROVIDER ?= "gcnano-userland-multi-binary-stm32mp"
-
-GPU_USERLAND_LIBRARIES_WAYLAND ?= "${GPU_VSI_USERLAND_LIBRARIES_PROVIDER}"
-GPU_USERLAND_LIBRARIES_EGLFS   ?= "${GPU_VSI_USERLAND_LIBRARIES_PROVIDER}"
+GPU_USERLAND_LIBRARIES_WAYLAND ?= "gcnano-userland-multi-binary-stm32mp"
+GPU_USERLAND_LIBRARIES_EGLFS   ?= "gcnano-userland-multi-binary-stm32mp"
 GPU_USERLAND_LIBRARIES_X11     ?= "mesa"
 
 # Helper function for overloading the default EGL/GLES implementation.
@@ -37,7 +35,7 @@ def get_gpu_vivante_handler(d):
     else:
         provider = "mesa"
 
-    return provider
+    return provider;
 
 GPU_USERLAND_LIBRARIES_INSTALL = "${@get_gpu_vivante_handler(d)}"
 
