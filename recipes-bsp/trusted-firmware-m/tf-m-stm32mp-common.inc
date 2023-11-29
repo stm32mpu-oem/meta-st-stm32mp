@@ -26,10 +26,10 @@ B = "${WORKDIR}/build"
 TFM_DEBUG ?= "1"
 
 # Platform must be set, ideally in the machine configuration.
-TFM_PLATFORM ?= "stm/stm32mp257f_valid3"
+TFM_PLATFORMS ?= "stm/stm32mp257f_ev1"
 python() {
-    if not d.getVar("TFM_PLATFORM"):
-        raise bb.parse.SkipRecipe("TFM_PLATFORM needs to be set")
+    if not d.getVar("TFM_PLATFORMS"):
+        raise bb.parse.SkipRecipe("TFM_PLATFORMS needs to be set")
 }
 
 PACKAGECONFIG ??= ""
@@ -44,9 +44,6 @@ EXTRA_OECMAKE += "-DTFM_TOOLCHAIN_FILE=${S}/toolchain_GNUARM.cmake"
 # Don't let FetchContent download more sources during do_configure
 EXTRA_OECMAKE += "-DFETCHCONTENT_FULLY_DISCONNECTED=ON"
 
-# Add platform parameters
-EXTRA_OECMAKE += "-DTFM_PLATFORM=${TFM_PLATFORM}"
-
 # Handle TFM_DEBUG parameter
 EXTRA_OECMAKE += "${@bb.utils.contains('TFM_DEBUG', '1', '-DCMAKE_BUILD_TYPE=Debug', '', d)}"
 
@@ -54,7 +51,7 @@ EXTRA_OECMAKE += "${@bb.utils.contains('TFM_DEBUG', '1', '-DCMAKE_BUILD_TYPE=Deb
 EXTRA_OECMAKE += "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON"
 
 # Path to extra components
-EXTRA_OECMAKE += "-DMBEDCRYPTO_PATH=${S}/../mbedtls -DTFM_TEST_REPO_PATH=${S}/../tf-m-tests -DMCUBOOT_PATH=${S}/../mcuboot"
+EXTRA_OECMAKE += "-DMBEDCRYPTO_PATH=${S}/../mbedtls -DTFM_TEST_REPO_PATH=${S}/../tf-m-tests -DMCUBOOT_PATH=${S}/../mcuboot -DQCBOR_PATH=${S}/../qcbor"
 
 # M33TD
 EXTRA_OECMAKE += "${@bb.utils.contains('TFM_M33TDCID', '1', '-DSTM32_M33TDCID=ON', '-DSTM32_M33TDCID=OFF', d)}"
@@ -83,27 +80,133 @@ apply_local_patches() {
 }
 do_patch[postfuncs] += "apply_local_patches"
 
-do_configure[cleandirs] = "${B}"
 do_configure() {
-    export PATH=$PATH:${STAGING_DATADIR_NATIVE}/gcc-arm-none-eabi/bin
-    cmake -GNinja -S ${S} -B ${B} ${EXTRA_OECMAKE} ${PACKAGECONFIG_CONFARGS}
+    :
 }
+
 
 # Invoke install here as there's no point in splitting compile from install: the
 # first thing the build does is 'install' inside the build tree thus causing a
 # rebuild. It also overrides the install prefix to be in the build tree, so you
 # can't use the usual install prefix variables.
+TF_M_DTS_SUB_PATH="platform/ext/target/stm/common/devicetree/dts/arm/stm/"
+CMAKE_BUILD_PARALLEL_LEVEL="1"
 do_compile() {
     export PATH=$PATH:${STAGING_DATADIR_NATIVE}/gcc-arm-none-eabi/bin
-    cmake --build ${B} -- install
+    for platform in ${TFM_PLATFORMS};
+    do
+        for dt in ${TF_M_DEVICETREE}; do
+            export PATH=$PATH:${STAGING_DATADIR_NATIVE}/gcc-arm-none-eabi/bin
+            platform_path=$(echo "$(basename $platform)_${dt}")
+            # strategy
+            # test devicetree exits: use it
+            # else
+            #    * devicetree not exist *
+            #    test devicetree with extenstion _s.dts exist: use it
+            #    else
+            #       test is external dt
+            #           if devicetree on external dt exist: use it
+            #           else
+            #              use platform
+            #       else
+            #           use platform
+            if [ -e ${S}/${TF_M_DTS_SUB_PATH}/${dt}.dts ]; then
+                echo "cmake -GNinja \
+                    -S ${S} -B ${B}/$platform_path \
+                    ${EXTRA_OECMAKE} \
+                    -DTFM_PLATFORM=$platform \
+                    -DDTS_BOARD_S=${dt}.dts \
+                    -DDTS_EXT_DIR=${S}/${TF_M_DTS_SUB_PATH}/ \
+                    -DNS=OFF \
+                    ${PACKAGECONFIG_CONFARGS}"
+                cmake -GNinja \
+                    -S ${S} -B ${B}/$platform_path \
+                    ${EXTRA_OECMAKE} \
+                    -DTFM_PLATFORM=$platform \
+                    -DDTS_BOARD_S=${dt}.dts \
+                    -DDTS_EXT_DIR=${S}/${TF_M_DTS_SUB_PATH}/ \
+                    -DNS=OFF \
+                    ${PACKAGECONFIG_CONFARGS}
+                cmake --build ${B}/$platform_path -- dt_s_gen_h
+                cmake --build ${B}/$platform_path -- install
+            else
+                if [ -e ${S}/${TF_M_DTS_SUB_PATH}/${dt}_s.dts ]; then
+                    echo "cmake -GNinja \
+                        -S ${S} -B ${B}/$platform_path \
+                        ${EXTRA_OECMAKE} \
+                        -DTFM_PLATFORM=$platform \
+                        -DDTS_BOARD_S=${dt}_s.dts \
+                        -DDTS_EXT_DIR=${S}/${TF_M_DTS_SUB_PATH}/ \
+                        -DNS=OFF \
+                        ${PACKAGECONFIG_CONFARGS}"
+                    cmake -GNinja \
+                        -S ${S} -B ${B}/$platform_path \
+                        ${EXTRA_OECMAKE} \
+                        -DTFM_PLATFORM=$platform \
+                        -DDTS_BOARD_S=${dt}_s.dts \
+                        -DDTS_EXT_DIR=${S}/${TF_M_DTS_SUB_PATH}/ \
+                        -DNS=OFF \
+                        ${PACKAGECONFIG_CONFARGS}
+                    cmake --build ${B}/$platform_path -- dt_s_gen_h
+                    cmake --build ${B}/$platform_path -- install
+                else
+                    if ${@bb.utils.contains('EXTERNAL_DT_ENABLED','1','true','false',d)}; then
+                        if  [ -e ${STAGING_EXTDT_DIR}/tf-m/${dt}.dts ]; then
+                            echo "cmake -GNinja \
+                                -S ${S} -B ${B}/$platform_path \
+                                ${EXTRA_OECMAKE} \
+                                -DTFM_PLATFORM=$platform \
+                                -DDTS_BOARD_S=${dt}.dts \
+                                -DDTS_EXT_DIR=${STAGING_EXTDT_DIR}/tf-m \
+                                -DNS=OFF \
+                                ${PACKAGECONFIG_CONFARGS}"
+                            cmake -GNinja \
+                                -S ${S} -B ${B}/$platform_path \
+                                ${EXTRA_OECMAKE} \
+                                -DTFM_PLATFORM=$platform \
+                                -DDTS_BOARD_S=${dt}.dts \
+                                -DDTS_EXT_DIR=${STAGING_EXTDT_DIR}/tf-m \
+                                -DNS=OFF \
+                                ${PACKAGECONFIG_CONFARGS}
+                            cmake --build ${B}/$platform_path -- dt_s_gen_h
+                            cmake --build ${B}/$platform_path -- install
+                        else
+                            bbwarn "TF-M:EXTERNAL-DT: devicetree not found (${dt}.dts) use platform fallback"
+                            # use platform instead of devicetree
+                            cmake -G"Unix Makefiles" -S ${S} -B ${B}/$platform_path ${EXTRA_OECMAKE} -DTFM_PLATFORM=$platform ${PACKAGECONFIG_CONFARGS}
+                            cmake --build ${B}/$platform_path -- install
+                        fi
+                    else
+                        bbwarn "TF-M: devicetree not found (${dt}.dts) use platform fallback"
+                        # use platform instead of devicetree
+                        cmake -G"Unix Makefiles" -S ${S} -B ${B}/$platform_path ${EXTRA_OECMAKE} -DTFM_PLATFORM=$platform ${PACKAGECONFIG_CONFARGS}
+                        cmake --build ${B}/$platform_path -- install
+                    fi
+                fi
+            fi
+        done
+    done
 }
+
 do_compile[progress] = "outof:^\[(\d+)/(\d+)\]\s+"
 
 do_install() {
     # TODO install headers and static libraries when we know how they're used
     # TODO: need to install only binary needed by platform
     install -d -m 755 ${D}/firmware
-    install -m 0644 ${B}/bin/* ${D}/firmware/
+    for platform in ${TFM_PLATFORMS};
+    do
+        for dt in ${TF_M_DEVICETREE}; do
+            dt_plat=$(echo ${dt} | sed "s/-/_/g")
+            platform_path=$(echo "$(basename $platform)_${dt}")
+            for file in $(ls -1 ${B}/$platform_path/bin/*);
+            do
+                file_name=$(basename $file)
+                file_renamed=$(echo $file_name | sed "s/tfm/tfm-${dt}/")
+                install -m 0644 ${B}/$platform_path/bin/$file_name ${D}/firmware/$file_renamed
+            done
+        done
+    done
 }
 
 FILES:${PN} = "/firmware"
@@ -112,7 +215,9 @@ SYSROOT_DIRS += "/firmware"
 addtask deploy after do_install
 do_deploy() {
     install -d ${DEPLOYDIR}/arm-trusted-firmware-m
-    cp -rf ${D}/firmware/* ${DEPLOYDIR}/arm-trusted-firmware-m
+    if [ $(find ${D}/firmware/ -type f | wc -l) -gt 0 ]; then
+        cp -rf ${D}/firmware/* ${DEPLOYDIR}/arm-trusted-firmware-m
+    fi
 }
 
 # Build paths are currently embedded
