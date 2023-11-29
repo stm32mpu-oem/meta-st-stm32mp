@@ -5,17 +5,23 @@ LIC_FILES_CHKSUM = "file://${GCNANO_TAR_FILENAME}/LICENSE;md5=0e85fa534ee3a1a7f5
 
 DEPENDS += " libdrm wayland "
 
-SRC_URI = "git://github.com/PRG-MPU-ALPHA/gcnano-binaries.git;protocol=https;branch=main"
-SRCREV = "b6ba29a9719c5d4fe62c66344dabaa8c78afc48f"
+LIC_FILES_CHKSUM:stm32mp1common = "file://${GCNANO_TAR_FILENAME}/LICENSE;md5=0e85fa534ee3a1a7f5ccc65cd6e789f9"
+SRC_URI:stm32mp1common = "git://github.com/STMicroelectronics/gcnano-binaries;protocol=https;branch=gcnano-6.4.13-binaries"
+SRCREV:stm32mp1common = "5d02efd5cb4cfa85307633891f3cf87550a8bc1d"
+
+SRC_URI:stm32mp2common = "git://github.com/PRG-MPU-ALPHA/gcnano-binaries;protocol=https;branch=main"
+SRCREV:stm32mp2common = "548f9bf0a6388b9b44658aa77270b1e56d7c1381"
 
 PV = "${GCNANO_VERSION}+${GCNANO_DATE}"
 
-GCNANO_VERSION = "6.4.9"
+GCNANO_VERSION = "6.4.15"
+GCNANO_VERSION:stm32mp1common = "6.4.13"
 
-GCNANO_DATE:stm32mp1common = "20221024"
-GCNANO_DATE:stm32mp2common = "20221114"
+GCNANO_DATE:stm32mp1common = "20230517"
+GCNANO_DATE:stm32mp2common = "20231127"
 
 GCNANO_PACKAGECONFIG = "egl gbm glesv1 glesv2 vg"
+
 GCNANO_PACKAGECONFIG:append = " ${@bb.utils.contains('MACHINE_FEATURES', 'openvx', 'vx', '', d)}"
 GCNANO_PACKAGECONFIG:append = " ${@bb.utils.contains('MACHINE_FEATURES', 'opencl', 'cl', '', d)}"
 GCNANO_PACKAGECONFIG:append = " ${@bb.utils.contains('MACHINE_FEATURES', 'vulkan', 'vulkan', '', d)}"
