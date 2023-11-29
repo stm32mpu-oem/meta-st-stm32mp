@@ -1,35 +1,24 @@
-SUMMARY = "Cert_create & Fiptool for fip generation for Trusted Firmware-A"
-LICENSE = "BSD-3-Clause"
-LIC_FILES_CHKSUM = "file://license.rst;md5=1dd070c98a281d18d9eefd938729b031"
+FILESEXTRAPATHS:prepend := "${THISDIR}/tf-a-tools:"
 
-SRC_URI = "git://github.com/ARM-software/arm-trusted-firmware.git;protocol=https;nobranch=1"
-#SRCREV corresponds to v2.6
-SRCREV = "a1f02f4f3daae7e21ee58b4c93ec3e46b8f28d15"
-
-SRC_URI += "file://0001-tools-stm32mp25-adaptation.patch \
-            file://0002-fix-fiptool-respect-OPENSSL_DIR.patch \
-            "
-
-# Mandatory fix to allow feeding password through command line
-SRC_URI += "file://0099-tools-allow-to-use-a-root-key-password-from-command-.patch"
+SRC_URI:append = " \
+    file://0001-FIX-GCC-tools-overwrite.patch \
+    file://0001-tools-allow-to-use-a-root-key-password-from-command-.patch \
+    "
 
 DEPENDS += "dtc-native openssl"
 
-S = "${WORKDIR}/git"
-
 COMPATIBLE_HOST:class-target = "null"
-
-EXTRA_OEMAKE:append:class-native = ' PLAT=stm32mp2 '
-EXTRA_OEMAKE:append:class-nativesdk = ' PLAT=stm32mp2 '
 
 HOSTCC:class-native = "${BUILD_CC}"
 HOSTCC:class-nativesdk = "${CC}"
+
 EXTRA_OEMAKE += "HOSTCC='${HOSTCC}' OPENSSL_DIR='${STAGING_EXECPREFIXDIR}'"
-EXTRA_OEMAKE += "certtool fiptool"
+EXTRA_OEMAKE += "certtool enctool fiptool"
+EXTRA_OEMAKE += "PLAT=${TFA_PLATFORM}"
 
 do_configure[noexec] = "1"
 
-do_compile:prepend() {
+do_compile:prepend:class-native () {
     # This is still needed to have the native fiptool executing properly by
     # setting the RPATH
     sed -e '/^LDLIBS/ s,$, \$\{BUILD_LDFLAGS},' \
@@ -40,8 +29,11 @@ do_compile:prepend() {
     sed -e '/^LIB_DIR/ s,$, \$\{BUILD_LDFLAGS},' \
         -e '/^INC_DIR/ s,$, \$\{BUILD_CFLAGS},' \
         -i ${S}/tools/cert_create/Makefile
-    # specific to stm32mp2
-    cp -f ${S}/tools/st/plat_fiptool/plat_fiptool.mk ${S}/plat/st/stm32mp2/
+    # This is still needed to have the native fiptool executing properly by
+    # setting the RPATH
+    sed -e '/^LIB_DIR/ s,$, \$\{BUILD_LDFLAGS},' \
+        -e '/^INC_DIR/ s,$, \$\{BUILD_CFLAGS},' \
+        -i ${S}/tools/encrypt_fw/Makefile
 }
 
 do_install() {
@@ -49,6 +41,7 @@ do_install() {
     install -m 0755 \
         ${B}/tools/fiptool/fiptool \
         ${B}/tools/cert_create/cert_create \
+        ${B}/tools/encrypt_fw/encrypt_fw \
         ${D}${bindir}
 }
 

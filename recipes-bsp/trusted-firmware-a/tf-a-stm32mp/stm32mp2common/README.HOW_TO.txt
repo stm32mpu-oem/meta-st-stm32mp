@@ -142,17 +142,17 @@ Please use STM32CubeProgrammer to update the boot partitions, find more informat
 7. Update Starter Package with TF-A compilation outputs
 ---------------------------
 If not already done, extract the artifacts from Starter Package tarball, for example:
-    # tar xf en.FLASH-stm32mp25-*.tar.xz
+    # tar xf en.FLASH-##MACHINE##-*.tar.xz
 
 Move to Starter Package root folder,
     #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original TF-A artifacts first
-    #> rm -rf images/stm32mp25/arm-trusted-firmware/*
-    #> rm -rf images/stm32mp25/fip/*
+    #> rm -rf images/##MACHINE##/arm-trusted-firmware/*
+    #> rm -rf images/##MACHINE##/fip/*
 Update Starter Package with new FSBL binaries from <DEPLOYDIR> folder
-    #> DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware && cp -rvf $DEPLOYDIR/* images/stm32mp25/arm-trusted-firmware/
+    #> DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware && cp -rvf $DEPLOYDIR/* images/##MACHINE##/arm-trusted-firmware/
         NB: if <DEPLOYDIR> has not been overide at compilation step, use default path: <tf-a source code folder>/../deploy
 Update Starter Package with new fip artifacts from <FIP_DEPLOYDIR_ROOT>/fip folder:
-    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp25/fip/
+    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/##MACHINE##/fip/
 
 Then the new Starter Package is ready to use for "Image flashing" on board (more information on wiki website https://wiki.st.com/stm32mpu).

@@ -4,22 +4,21 @@ SECTION = "bootloaders"
 
 LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://license.rst;md5=1dd070c98a281d18d9eefd938729b031"
-
 CVE_PRODUCT = "arm:trusted_firmware-a"
 
-SRC_URI = "git://github.com/ARM-software/arm-trusted-firmware.git;protocol=https;branch=master"
-SRCREV = "a1f02f4f3daae7e21ee58b4c93ec3e46b8f28d15"
+SRC_URI = "git://git.trustedfirmware.org/TF-A/trusted-firmware-a.git;protocol=http;branch=lts-v2.8"
+SRCREV = "f94d6db9b101d3d4cd053e54edd5b876f1cc84ec"
 
 SRC_URI += " \
-     file://tf-a-st-ddr.tar.xz;subdir=git/;name=fw \
-     file://0001-v2.6-stm32mp25-alpha-r1.patch \
-     "
+    file://tf-a-st-ddr.tar.gz;subdir=git;name=fw \
+    file://0001-v2.8-stm32mp25-beta.patch \
+    "
 
-SRC_URI[fw.sha256sum] = "307e93f95fb979904f3701d614595af2"
+SRC_URI[fw.sha256sum] = "c87d8a03a8feab1f8a51818a7942deade5d31abb7f4afaa6d6dfa922383e9805"
 
-TF_A_VERSION = "v2.6"
-TF_A_SUBVERSION = "stm32mp25"
-TF_A_RELEASE = "alpha-r1"
+TF_A_VERSION = "v2.8.12"
+TF_A_SUBVERSION = "stm32mp"
+TF_A_RELEASE = "beta-r1"
 PV = "${TF_A_VERSION}-${TF_A_SUBVERSION}-${TF_A_RELEASE}"
 
 ARCHIVER_ST_BRANCH = "${TF_A_VERSION}-${TF_A_SUBVERSION}"
@@ -34,8 +33,8 @@ S = "${WORKDIR}/git"
 # ---------------------------------
 BBCLASSEXTEND = "devupstream:target"
 
-SRC_URI:class-devupstream = "git://github.com/STMicroelectronics/arm-trusted-firmware.git;protocol=https;branch=${ARCHIVER_ST_BRANCH}"
-SRCREV:class-devupstream = "0000000000000000000000000000000000000000"
+SRC_URI:class-devupstream = "git://github.com/PRG-MPU-ALPHA/arm-trusted-firmware.git;protocol=https;branch=v2.8-stm32mp25-beta-dev"
+SRCREV:class-devupstream = "5f0c0a0b2f066a7d473ae95c8a5ee7f30a577b5a"
 
 # ---------------------------------
 # Configure default preference to manage dynamic selection between tarball and github

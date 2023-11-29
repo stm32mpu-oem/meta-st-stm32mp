@@ -5,7 +5,9 @@ PROVIDES += "virtual/trusted-firmware-a"
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 inherit deploy
+inherit sign-stm32mp
 inherit fip-utils-stm32mp
+inherit external-dt
 
 # Include TF-A config definitions
 require tf-a-stm32mp-config.inc
@@ -13,18 +15,18 @@ require tf-a-stm32mp-config.inc
 # ------------------------------------
 # Set MBEDTLS support
 TFA_MBEDTLS_DIR ?= "mbedtls"
-# MBEDTLS v2.24.0
-SRC_URI_MBEDTLS = "git://github.com/ARMmbed/mbedtls.git;protocol=https;destsuffix=git/${TFA_MBEDTLS_DIR};branch=master;name=mbedtls"
-SRCREV_mbedtls = "523f0554b6cdc7ace5d360885c3f5bbcc73ec0e8"
+# MBEDTLS v2.28.5
+SRC_URI_MBEDTLS = "git://github.com/ARMmbed/mbedtls.git;protocol=https;destsuffix=git/${TFA_MBEDTLS_DIR};branch=mbedtls-2.28;name=mbedtls"
+SRCREV_mbedtls = "47e8cc9db2e469d902b0e3093ae9e482c3d87188"
 LIC_FILES_CHKSUM_MBEDTLS = "file://mbedtls/LICENSE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 LICENSE_MBEDTLS = "Apache-2.0"
 # Add MBEDTLS to our sources
-SRC_URI:append = " ${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', '${SRC_URI_MBEDTLS}', '', d)}"
+SRC_URI:append = " ${@bb.utils.contains('SIGN_ENABLE', '1', '${SRC_URI_MBEDTLS}', '', d)}"
 # Update license variables
-LICENSE:append = "${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', ' & ${LICENSE_MBEDTLS}', '', d)}"
-LIC_FILES_CHKSUM:append = "${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', ' ${LIC_FILES_CHKSUM_MBEDTLS}', '', d)}"
+LICENSE:append = "${@bb.utils.contains('SIGN_ENABLE', '1', ' & ${LICENSE_MBEDTLS}', '', d)}"
+LIC_FILES_CHKSUM:append = "${@bb.utils.contains('SIGN_ENABLE', '1', ' ${LIC_FILES_CHKSUM_MBEDTLS}', '', d)}"
 # Add mbed TLS to version
-SRCREV_FORMAT:append = "${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', '_mbedtls', '', d)}"
+SRCREV_FORMAT:append = "${@bb.utils.contains('SIGN_ENABLE', '1', '_mbedtls', '', d)}"
 # ------------------------------------
 
 B = "${WORKDIR}/build"
@@ -36,6 +38,7 @@ DEPENDS:append = " ${@bb.utils.contains('TF_A_ENABLE_DEBUG_WRAPPER', '1', 'stm32
 
 # Default log level
 ST_TF_A_DEBUG ??= "1"
+ST_TF_A_DEBUG_TRACE ??= "0"
 ST_TF_A_LOG_LEVEL_RELEASE ??= "20"
 ST_TF_A_LOG_LEVEL_DEBUG ??= "40"
 
@@ -47,6 +50,9 @@ EXTRA_OEMAKE += 'CROSS_COMPILE=${TARGET_PREFIX}'
 # Debug support
 EXTRA_OEMAKE += "${@bb.utils.contains('ST_TF_A_DEBUG_TRACE', '1', 'DEBUG=${ST_TF_A_DEBUG}', '', d)}"
 EXTRA_OEMAKE += "${@bb.utils.contains('ST_TF_A_DEBUG_TRACE', '1', 'LOG_LEVEL=${ST_TF_A_LOG_LEVEL_DEBUG}', 'LOG_LEVEL=${ST_TF_A_LOG_LEVEL_RELEASE}', d)}"
+EXTRA_OEMAKE += "${@bb.utils.contains('EXTERNAL_DT_ENABLED', '1', 'TFA_EXTERNAL_DT=${STAGING_EXTDT_DIR}/tf-a', '', d)}"
+# OPTEE in sysram
+EXTRA_OEMAKE:append:stm32mp1common = " ${@bb.utils.contains('ST_OPTEE_IN_SYSRAM', '1', 'STM32MP1_OPTEE_IN_SYSRAM=1', '', d)}"
 
 # Define default TF-A namings
 TF_A_BASENAME ?= "tf-a"
@@ -81,6 +87,13 @@ BL32_SUFFIX ?= "bin"
 DT_SUFFIX ?= "dtb"
 FWCONFIG_NAME ?= "fw-config"
 
+# Output the firwmare ddr
+TF_A_FWDDR ?= "0"
+TF_A_FWDDR:stm32mp25common = "1"
+
+FWDDR_NAME ?= "ddr_pmu"
+FWDDR_SUFFIX ?= "bin"
+
 # Set default TF-A config
 TF_A_CONFIG ?= ""
 
@@ -88,26 +101,48 @@ TF_A_CONFIG ?= ""
 TF_A_ENABLE_DEBUG_WRAPPER ??= "1"
 
 # Set default configuration to allow signing
-TF_A_SIGN_ENABLE ??= "0"
-TF_A_ENCRYPTED_ENABLE ??= "0"
+TF_A_SIGN_SUFFIX ??= "${@bb.utils.contains('SIGN_ENABLE', '1', '${SIGN_SUFFIX}', '', d)}"
+TF_A_SIGN_OF ?= "0x00000001"
+TF_A_SIGN_OF:stm32mp1common ?= "0x00000001"
+TF_A_SIGN_OF:stm32mp25common ?= "0x00000001"
+TF_A_SIGN_OF:stm32mp25revabcommon ?= "0x00000001"
+
+TF_A_ENCRYPT_SUFFIX ??= "${@bb.utils.contains('ENCRYPT_ENABLE', '1', '${ENCRYPT_SUFFIX}', '', d)}"
+TF_A_ENCRYPT_DC ?= "0x0E5F2025"
+TF_A_ENCRYPT_DC:stm32mp1common ?= "0x0E5F2025"
+TF_A_ENCRYPT_DC:stm32mp25common ?= "0x25205f0e"
+TF_A_ENCRYPT_DC:stm32mp25revabcommon ?= "0x25205f0e"
+
+TF_A_ENCRYPT_IMGVER ?= "0"
+TF_A_ENCRYPT_OF ?= "0x80000003"
+TF_A_ENCRYPT_OF:stm32mp1common ?= "0x80000003"
+TF_A_ENCRYPT_OF:stm32mp2common ?= "0x10000003"
+
 
 # Set metadata generation
-TF_A_ENABLE_METADATA ??= "${@bb.utils.contains('MACHINE_FEATURES', 'fw-update', '1', '0', 'd')}"
+TF_A_ENABLE_METADATA ??= "${@bb.utils.contains('MACHINE_FEATURES', 'fw-update', '1', '0', d)}"
 TF_A_METADATA_NAME ?= "metadata"
 TF_A_METADATA_SUFFIX ?= "bin"
 TF_A_METADATA_BINARY ??= "${TF_A_METADATA_NAME}.${TF_A_METADATA_SUFFIX}"
 
 TF_A_METADATA_TOOL ?= "tools/fwu_gen_metadata/fwumd_tool.py"
-TF_A_METADATA_JSON ?= "plat/st/stm32mp1/default_metadata.json"
+TF_A_METADATA_JSON ?= "plat/st/common/default_metadata.json"
 
 # Configure specific build flags
-EXTRA_OEMAKE += "${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', 'TRUSTED_BOARD_BOOT=1', '', d)}"
-EXTRA_OEMAKE += "${@bb.utils.contains('TF_A_SIGN_ENABLE', '1', 'MBEDTLS_DIR=${TFA_MBEDTLS_DIR}', '', d)}"
-EXTRA_OEMAKE += "${@bb.utils.contains('TF_A_ENCRYPTED_ENABLE', '1', 'DECRYPTION_SUPPORT=aes_gcm ENCRYPT_BL32=1', '', d)}"
+EXTRA_OEMAKE += "${@bb.utils.contains('SIGN_ENABLE', '1', 'TRUSTED_BOARD_BOOT=1', '', d)}"
+EXTRA_OEMAKE += "${@bb.utils.contains('SIGN_ENABLE', '1', 'MBEDTLS_DIR=${TFA_MBEDTLS_DIR}', '', d)}"
+EXTRA_OEMAKE:append:stm32mp2common = " ${@bb.utils.contains('SIGN_ENABLE', '1', 'BRANCH_PROTECTION=0', '', d)} "
 
-# Directory on which the ddr firmwares are stored
-FIP_FWDDR_DIR ?= "arm-trusted-firmware/ddr"
-FIP_DEPLOYDIR_FWDDR ?= "${DEPLOYDIR}/${FIP_FWDDR_DIR}"
+EXTRA_OEMAKE += "${@bb.utils.contains('ENCRYPT_ENABLE', '1', 'DECRYPTION_SUPPORT=aes_gcm ENCRYPT_BL32=1', '', d)}"
+EXTRA_OEMAKE += "${@bb.utils.contains('ENCRYPT_ENABLE', '1', bb.utils.contains('FIP_BL31_ENABLE', '1', 'ENCRYPT_BL31=1', '', d), '', d)} "
+
+# Addons parameters for SIGN_TOOL
+SIGN_TOOL_EXTRA ?= ""
+SIGN_TOOL_EXTRA:stm32mp25common = "--header-version 2"
+SIGN_TOOL_EXTRA:stm32mp25revabcommon = "--header-version 2"
+
+# Specific for revA board
+EXTRA_OEMAKE:append:stm32mp25revabcommon = " CONFIG_STM32MP25X_REVA=1 "
 
 # -----------------------------------------------
 # Handle TF-A config and set internal vars
@@ -173,12 +208,11 @@ python () {
                     break
 
     # Manage case of signature:
-    # If signature are activated, for winning space, the debug parameter will be remove and level of trace decrease
-    signature_val = d.getVar('TF_A_SIGN_ENABLE')
-    if signature_val and signature_val == "1":
-        bb.warn("TF-A SIGNATURE: force to disable DEBUG and decrease log level")
-        # force no debug and log level to release
-        d.setVar('ST_TF_A_DEBUG_TRACE', "0")
+    if d.getVar('SIGN_ENABLE') == "1":
+        # If signature are activated, for winning space, the debug parameter will be remove and level of trace decrease
+        if d.getVar('ST_TF_A_DEBUG_TRACE') == '1':
+            bb.warn("TF-A SIGNATURE: force ST_TF_A_DEBUG_TRACE to '0' to disable DEBUG and decrease log level")
+            d.setVar('ST_TF_A_DEBUG_TRACE', "0")
 }
 
 # -----------------------------------------------
@@ -245,49 +279,207 @@ do_compile() {
                 done
             fi
             mkdir -p ${B}/${config}${soc_suffix}
-            # Detect ddr type if it's present
-            oe_runmake -C "${S}" BUILD_PLAT="${B}/${config}${soc_suffix}-${dt}" DTB_FILE_NAME="${dt}.dtb" ${extra_opt} ${soc_extra_opt} dtbs
-            if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb" ]; then
-                ddr_dtb_node=$(${STAGING_BINDIR_NATIVE}/fdtget -l ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc | grep ddr | head -n 1)
-                ddr_propertie=$(${STAGING_BINDIR_NATIVE}/fdtget ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc/${ddr_dtb_node} st,mem-name || echo "none")
-                # potentials value of ddr_propertie:
-                # DDR3 16bits
-                # DDR4 32bits
-                # DDR4 8Gbits
-                # LPDDR4 32bits
-                case ${ddr_propertie} in
-                DDR3*)
-                    ddr_extra_opt=" STM32MP_DDR3_TYPE=1 "
-                    ;;
-                DDR4*)
-                    ddr_extra_opt=" STM32MP_DDR4_TYPE=1 "
-                    ;;
-                LPDDR4*)
-                    ddr_extra_opt=" STM32MP_LPDDR4_TYPE=1 "
-                    ;;
-                *)
-                    # HACK for stm32mp257f-dk and stm32mp257f-ev devicetree which don't have DDR info
-                    ddr_extra_opt=" STM32MP_DDR4_TYPE=1 "
-                    # do nothing
-                    ;;
-                esac
-                bbnote "${dt}: ${tf_a_make_target} -> ${ddr_extra_opt}"
+            if [ "${TF_A_ENABLE_METADATA}" = "1" ]; then
+                ${S}/${TF_A_METADATA_TOOL} jsonparse "${S}/${TF_A_METADATA_JSON}" -b "${B}/${config}${soc_suffix}/${TF_A_METADATA_NAME}.${TF_A_METADATA_SUFFIX}"
             fi
 
-            oe_runmake -C "${S}" BUILD_PLAT="${B}/${config}${soc_suffix}-${dt}" DTB_FILE_NAME="${dt}.dtb" ${extra_opt} ${soc_extra_opt} ${ddr_extra_opt} ${tf_a_make_target}
+            # Init specific ddr settings
+            ddr_extra_opt=""
+            if [ "${TF_A_FWDDR}" = "1" ]; then
+                # Detect ddr type if it's present
+                oe_runmake -C "${S}" BUILD_PLAT="${B}/${config}${soc_suffix}-${dt}" DTB_FILE_NAME="${dt}.dtb" ${extra_opt} ${soc_extra_opt} dtbs
+                if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb" ]; then
+                    ddr_dtb_node=$(${STAGING_BINDIR_NATIVE}/fdtget -l ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc | grep ddr | head -n 1)
+                    ddr_propertie=$(${STAGING_BINDIR_NATIVE}/fdtget ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc/${ddr_dtb_node} st,mem-name || echo "none")
+                    ddr_target=""
+                    # potentials value of ddr_propertie:
+                    # DDR3 16bits
+                    # DDR4 32bits
+                    # DDR4 8Gbits
+                    # LPDDR4 32bits
+                    case ${ddr_propertie} in
+                        DDR3*)
+                            ddr_extra_opt=" STM32MP_DDR3_TYPE=1 "
+                            ddr_target="ddr3"
+                            ;;
+                        DDR4*)
+                            ddr_extra_opt=" STM32MP_DDR4_TYPE=1 "
+                            ddr_target="ddr4"
+                            ;;
+                        LPDDR4*)
+                            ddr_extra_opt=" STM32MP_LPDDR4_TYPE=1 "
+                            ddr_target="lpddr4"
+                            ;;
+                        *)
+                            bbwarn "Missing st,mem-name information for ${dt}"
+                            ;;
+                    esac
+                    bbnote "${dt}: ${tf_a_make_target} -> ${ddr_extra_opt}"
+                    # Copy TF-A ddr binary with explicit devicetree filename
+                    if [ -n "${ddr_target}" ]; then
+                        if [ -s "${S}/drivers/st/ddr/phy/firmware/bin/${ddr_target}_pmu_train.bin" ]; then
+                            cp "${S}/drivers/st/ddr/phy/firmware/bin/${ddr_target}_pmu_train.bin" "${B}/${config}${soc_suffix}-${dt}/${FWDDR_NAME}-${dt}.${FWDDR_SUFFIX}"
+                        else
+                            bbwarn "Missing ddr firmware file ${ddr_target}_pmu_train.bin for ${dt}"
+                        fi
+                    fi
+                fi
+            fi
+
+            encrypt_extra_opt=""
+            if [ "${ENCRYPT_ENABLE}" = "1" ]; then
+                    encrypt_key="${ENCRYPT_FIP_KEY_PATH_LIST}"
+                    if [ -n "${STM32MP_ENCRYPT_SOC_NAME}" ]; then
+                        unset k
+                        for soc in ${STM32MP_ENCRYPT_SOC_NAME}; do
+                            k=$(expr $k + 1)
+                            [ "$(echo ${dt} | grep -c ${soc})" -eq 1 ] && encrypt_key=$(echo ${ENCRYPT_FIP_KEY_PATH_LIST} | cut -d',' -f${k})
+                        done
+                    fi
+                    encrypt_extra_opt="ENC_KEY=$(hexdump -e '/1 "%02x"' ${encrypt_key})"
+            fi
+
+            oe_runmake -C "${S}" BUILD_PLAT="${B}/${config}${soc_suffix}-${dt}" DTB_FILE_NAME="${dt}.dtb" ${extra_opt} ${soc_extra_opt} ${ddr_extra_opt} ${encrypt_extra_opt} ${tf_a_make_target}
+
             # Copy TF-A binary with explicit devicetree filename
             if [ -f "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}.${TF_A_SUFFIX}" ]; then
                 cp "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}.${TF_A_SUFFIX}" "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}"
                 if [ "${TF_A_ENABLE_DEBUG_WRAPPER}" = "1" ]; then
                     stm32wrapper4dbg -s "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}.${TF_A_SUFFIX}" -d "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}"
                 fi
-            fi
-            # Specific for bl32 target
-            if [ "$(echo ${tf_a_make_target} | grep -cw 'bl32')" = "1" ]; then
-                # Move 'bl32.elf' file to explicit file name with 'soc_suffix' info (same file for all devicetree build)
-                # This avoid unexpected deployment for other config (cf. do_deploy task)
-                if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" ]; then
-                    mv -f "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" "${B}/${config}${soc_suffix}-${dt}/${TF_A_BASENAME}-${BL32_BASENAME}${soc_suffix}.${TF_A_ELF_SUFFIX}"
+
+                if [ "${SIGN_ENABLE}" = "1" ]; then
+                    # Init sign key for signing tools
+                    sign_key="${SIGN_KEY_PATH_LIST}"
+                    if [ -n "${STM32MP_SOC_NAME}" ]; then
+                        unset k
+                        for soc in ${STM32MP_SOC_NAME}; do
+                            k=$(expr $k + 1)
+                            [ "$(echo ${dt} | grep -c ${soc})" -eq 1 ] && sign_key=$(echo ${SIGN_KEY_PATH_LIST} | cut -d',' -f${k})
+                        done
+                    fi
+                    # Init default '-of' option for signing case
+                    tf_a_sign_of_opt=""
+                    dd if="${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" of=header.dump bs=1 count=4 skip=72 > /dev/null 2> /dev/null
+                    temp_version=$(od -A o -t dI header.dump | head -n 1 | cut -d' ' -f2- | sed "s/ //g")
+                    rm -f header.dump
+                    [ "$(expr $temp_version / 65536)" = "2" ] && tf_a_sign_of_opt="-of ${TF_A_SIGN_OF}"
+                    # Sign tf-a binary
+                    echo "${SIGN_TOOL} \
+                        -bin "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" \
+                        -o "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        --password ${SIGN_KEY_PASS} \
+                        --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                        --private-key ${sign_key} \
+                        --type fsbl \
+                        --silent \
+                        ${SIGN_TOOL_EXTRA} \
+                        ${tf_a_sign_of_opt}"
+                    ${SIGN_TOOL} \
+                        -bin "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" \
+                        -o "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        --password ${SIGN_KEY_PASS} \
+                        --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                        --private-key ${sign_key} \
+                        --type fsbl \
+                        --silent \
+                        ${SIGN_TOOL_EXTRA} \
+                        ${tf_a_sign_of_opt}
+                    if [ "${TF_A_ENABLE_DEBUG_WRAPPER}" = "1" ]; then
+                        echo "${SIGN_TOOL} \
+                            -bin "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" \
+                            -o "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            --password ${SIGN_KEY_PASS} \
+                            --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                            --private-key "${sign_key}" \
+                            --type fsbl \
+                            --silent \
+                            ${SIGN_TOOL_EXTRA} \
+                            ${tf_a_sign_of_opt}"
+                        ${SIGN_TOOL} \
+                            -bin "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" \
+                            -o "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            --password ${SIGN_KEY_PASS} \
+                            --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                            --private-key "${sign_key}" \
+                            --type fsbl \
+                            --silent \
+                            ${SIGN_TOOL_EXTRA} \
+                            ${tf_a_sign_of_opt}
+                    fi
+                fi
+
+                if [ "${ENCRYPT_ENABLE}" = "1" ]; then
+                    # Init encrypt key for signing tools
+                    encrypt_key="${ENCRYPT_FSBL_KEY_PATH_LIST}"
+                    if [ -n "${STM32MP_ENCRYPT_SOC_NAME}" ]; then
+                        unset k
+                        for soc in ${STM32MP_ENCRYPT_SOC_NAME}; do
+                            k=$(expr $k + 1)
+                            [ "$(echo ${dt} | grep -c ${soc})" -eq 1 ] && encrypt_key=$(echo ${ENCRYPT_FSBL_KEY_PATH_LIST} | cut -d',' -f${k})
+                        done
+                    fi
+                    # Init default '-of' option for signing case
+                    tf_a_sign_of_opt=""
+                    dd if="${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" of=header.dump bs=1 count=4 skip=72 > /dev/null 2> /dev/null
+                    temp_version=$(od -A o -t dI header.dump | head -n 1 | cut -d' ' -f2- | sed "s/ //g")
+                    rm -f header.dump
+                    [ "$(expr $temp_version / 65536)" = "2" ] && tf_a_sign_of_opt="-hv 2"
+                    # Encrypt tf-a binary
+                    echo '${SIGN_TOOL} \
+                        -bin "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        -o "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        --password ${SIGN_KEY_PASS} \
+                        --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                        --private-key ${sign_key} \
+                        --type fsbl \
+                        --silent \
+                        --enc-key ${encrypt_key} \
+                        --enc-dc "${TF_A_ENCRYPT_DC}" \
+                        --image-version "${TF_A_ENCRYPT_IMGVER}" \
+                        -of "${TF_A_ENCRYPT_OF}" \
+                        ${tf_a_sign_of_opt} '
+                    ${SIGN_TOOL} \
+                        -bin "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        -o "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                        --password ${SIGN_KEY_PASS} \
+                        --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                        --private-key ${sign_key} \
+                        --type fsbl \
+                        --silent \
+                        --enc-key ${encrypt_key} \
+                        --enc-dc "${TF_A_ENCRYPT_DC}" \
+                        --image-version "${TF_A_ENCRYPT_IMGVER}" \
+                        -of "${TF_A_ENCRYPT_OF}" \
+                        ${tf_a_sign_of_opt}
+                    if [ "${TF_A_ENABLE_DEBUG_WRAPPER}" = "1" ]; then
+                        echo '${SIGN_TOOL} \
+                            -bin "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            -o "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            --password ${SIGN_KEY_PASS} \
+                            --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                            --private-key ${sign_key} \
+                            --type fsbl \
+                            --silent \
+                            --enc-key ${encrypt_key} \
+                            --enc-dc "${TF_A_ENCRYPT_DC}" \
+                            --image-version "${TF_A_ENCRYPT_IMGVER}" \
+                            -of "${TF_A_ENCRYPT_OF}" \
+                            ${tf_a_sign_of_opt}'
+                        ${SIGN_TOOL} \
+                            -bin "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            -o "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" \
+                            --password ${SIGN_KEY_PASS} \
+                            --public-key $(ls -1 $(dirname ${sign_key})/publicKey*.pem | tr '\n' '\t') \
+                            --private-key ${sign_key} \
+                            --type fsbl \
+                            --silent \
+                            --enc-key ${encrypt_key} \
+                            --enc-dc "${TF_A_ENCRYPT_DC}" \
+                            --image-version "${TF_A_ENCRYPT_IMGVER}" \
+                            -of "${TF_A_ENCRYPT_OF}"\
+                            ${tf_a_sign_of_opt}
+                    fi
                 fi
             fi
         done
@@ -296,86 +488,6 @@ do_compile() {
     if [ "${TF_A_ENABLE_METADATA}" = "1" ]; then
         ${S}/${TF_A_METADATA_TOOL} jsonparse "${S}/${TF_A_METADATA_JSON}" -b "${B}/${TF_A_METADATA_NAME}.${TF_A_METADATA_SUFFIX}"
     fi
-}
-
-do_deploy:prepend:stm32mp2common() {
-    install -d ${DEPLOYDIR}
-    install -d ${DEPLOYDIR}/arm-trusted-firmware
-    install -d ${FIP_DEPLOYDIR_FWDDR}
-
-    if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ]; then
-        if [ ! -f ${DEPLOY_DIR_IMAGE}/${FIP_FWDDR_DIR}/ddr3_pmu_train.bin ]; then
-            if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ]; then
-                install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}
-            fi
-        fi
-    fi
-    if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ]; then
-        if [ ! -f ${DEPLOY_DIR_IMAGE}/${FIP_FWDDR_DIR}/ddr4_pmu_train.bin ]; then
-            if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ]; then
-                install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}
-            fi
-        fi
-    fi
-    if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ]; then
-        if [ ! -f ${DEPLOY_DIR_IMAGE}/${FIP_FWDDR_DIR}/lpddr4_pmu_train.bin ]; then
-            if [ -f ${S}/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ]; then
-                install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}
-            fi
-        fi
-    fi
-    #create ddr_firmware for each dtb/board
-    for config in ${TF_A_CONFIG}; do
-        i=$(expr $i + 1)
-        # Initialize devicetree list and tf-a basename
-        dt_config=$(echo ${TF_A_DEVICETREE} | cut -d',' -f${i})
-        tfa_basename=$(echo ${TF_A_BINARIES} | cut -d',' -f${i})
-        tfa_file_type=$(echo ${TF_A_FILES} | cut -d',' -f${i})
-        for dt in ${dt_config}; do
-            # Init soc suffix
-            soc_suffix=""
-            if [ -n "${STM32MP_SOC_NAME}" ]; then
-                for soc in ${STM32MP_SOC_NAME}; do
-                    [ "$(echo ${dt} | grep -c ${soc})" -eq 1 ] && soc_suffix="-${soc}"
-                done
-            fi
-            for file_type in ${tfa_file_type}; do
-                case "${file_type}" in
-                bl2)
-                    if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb" ]; then
-                        ddr_dtb_node=$(${STAGING_BINDIR_NATIVE}/fdtget -l ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc | grep ddr | head -n 1)
-                        ddr_propertie=$(${STAGING_BINDIR_NATIVE}/fdtget ${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-bl2.dtb /soc/${ddr_dtb_node} st,mem-name || echo "none")
-                        # potentials value of ddr_propertie:
-                        # DDR3 16bits
-                        # DDR4 32bits
-                        # DDR4 8Gbits
-                        # LPDDR4 32bits
-                        if [ ! -f "${FIP_DEPLOYDIR_FWDDR}/ddr_pmu-${dt}.bin" ]; then
-                            case ${ddr_propertie} in
-                            DDR3*)
-                                if [ -s ${S}/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ]; then
-                                    install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}/ddr_pmu-${dt}.bin
-                                fi
-                                ;;
-                            DDR4*)
-                                if [ -s ${S}/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ]; then
-                                    install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}/ddr_pmu-${dt}.bin
-                                fi
-                                ;;
-                            LPDDR4*)
-                                if [ -s ${S}/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ]; then
-                                    install -m 644 ${S}/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ${FIP_DEPLOYDIR_FWDDR}/ddr_pmu-${dt}.bin
-                                fi
-                                ;;
-                            *)
-                                bbwarn "Missing st,mem-name information for ${dt}"
-                            esac
-                        fi
-                    fi
-                esac
-            done # for file_type in ${tfa_file_type}
-        done # for dt in ${dt_config}
-    done # for config in ${TF_A_CONFIG}
 }
 
 do_deploy() {
@@ -399,73 +511,74 @@ do_deploy() {
             fi
             for file_type in ${tfa_file_type}; do
                 case "${file_type}" in
-                bl2)
-                    # Install TF-A binary
-                    if [ -f "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" ]; then
-                        install -m 644 "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/"
-                        if [ "${TF_A_ENABLE_DEBUG_WRAPPER}" = "1" ]; then
-                            install -d "${DEPLOYDIR}/arm-trusted-firmware/debug"
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/debug/"
-                        fi
-                    fi
-                    if [ -n "${ELF_DEBUG_ENABLE}" ]; then
-                        install -d ${DEPLOYDIR}/arm-trusted-firmware/debug
-                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL2_ELF}" ]; then
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL2_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/debug/${tfa_basename}-${BL2_BASENAME_DEPLOY}-${config}.${TF_A_ELF_SUFFIX}"
-                        fi
-                    fi
-                    ;;
-                bl31)
-                    # Install BL31 files
-                    if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" ]; then
-                        install -d "${DEPLOYDIR}/arm-trusted-firmware/bl31"
-                        # Install BL31 binary
-                        install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}.${BL31_SUFFIX}"
-                        if [ -n "${ELF_DEBUG_ENABLE}" ]; then
-                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${BL31_BASENAME}${soc_suffix}.${TF_A_ELF_SUFFIX}" ]; then
-                                install -d "${DEPLOYDIR}/arm-trusted-firmware/bl32/debug"
-                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${BL31_BASENAME}${soc_suffix}.${TF_A_ELF_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/debug/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}.${TF_A_ELF_SUFFIX}"
+                    bl2)
+                        # Install TF-A binary
+                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}.${TF_A_SUFFIX}" ]; then
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/"
+                            if [ "${TF_A_ENABLE_DEBUG_WRAPPER}" = "1" ]; then
+                                install -d "${DEPLOYDIR}/arm-trusted-firmware/debug"
+                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/debug-${tfa_basename}-${dt}-${config}${TF_A_ENCRYPT_SUFFIX}${TF_A_SIGN_SUFFIX}.${TF_A_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/debug/"
                             fi
                         fi
-                    fi
-                    if [ -n "${ELF_DEBUG_ENABLE}" ]; then
-                        install -d "${DEPLOYDIR}/arm-trusted-firmware/debug"
-                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL31_ELF}" ]; then
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/debug/${tfa_basename}-${BL31_BASENAME_DEPLOY}-${config}.${TF_A_ELF_SUFFIX}"
+                        if [ -n "${ELF_DEBUG_ENABLE}" ]; then
+                            install -d "${DEPLOYDIR}/arm-trusted-firmware/debug"
+                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL2_ELF}" ]; then
+                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL2_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/debug/${tfa_basename}-${BL2_BASENAME_DEPLOY}${soc_suffix}-${config}.${TF_A_ELF_SUFFIX}"
+                            fi
                         fi
-                    fi
-                    ;;
-                bl32)
-                    # Install BL32 files
-                    if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL32_BASENAME}.${BL32_SUFFIX}" ]; then
+                        if [ "${TF_A_FWDDR}" = "1" ]; then
+                            install -d "${DEPLOYDIR}/arm-trusted-firmware/ddr"
+                            # Install DDR firmware binary
+                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${FWDDR_NAME}-${dt}.${FWDDR_SUFFIX}" ]; then
+                                if [ ! -s "${DEPLOYDIR}/arm-trusted-firmware/ddr/${FWDDR_NAME}-${dt}.${FWDDR_SUFFIX}" ]; then
+                                    install -m 644 "${B}/${config}${soc_suffix}-${dt}/${FWDDR_NAME}-${dt}.${FWDDR_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/ddr/"
+                                fi
+                            fi
+                        fi
+                        ;;
+                    bl31)
+                        # Install BL31 files
+                        install -d "${DEPLOYDIR}/arm-trusted-firmware/bl31"
+                        # Install BL31 binary
+                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" ]; then
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}.${BL31_SUFFIX}"
+                        fi
+                        # Install BL31 devicetree
+                        if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL31_BASENAME}.${DT_SUFFIX}" ]; then
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL31_BASENAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${dt}-${BL31_BASENAME}.${DT_SUFFIX}"
+                        fi
+                        if [ -n "${ELF_DEBUG_ENABLE}" ]; then
+                            install -d "${DEPLOYDIR}/arm-trusted-firmware/bl31/debug"
+                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL31_ELF}" ]; then
+                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/debug/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}-${config}.${TF_A_ELF_SUFFIX}"
+                            fi
+                        fi
+                        ;;
+                    bl32)
+                        # Install BL32 files
                         install -d "${DEPLOYDIR}/arm-trusted-firmware/bl32"
                         # Install BL32 binary
-                        install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL32_BASENAME}.${BL32_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl32/${tfa_basename}-${BL32_BASENAME_DEPLOY}${soc_suffix}.${BL32_SUFFIX}"
+                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL32_BASENAME}.${BL32_SUFFIX}" ]; then
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL32_BASENAME}.${BL32_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl32/${tfa_basename}-${BL32_BASENAME_DEPLOY}${soc_suffix}.${BL32_SUFFIX}"
+                        fi
                         # Install BL32 devicetree
                         if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL32_BASENAME}.${DT_SUFFIX}" ]; then
                             install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL32_BASENAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl32/${dt}-${BL32_BASENAME}.${DT_SUFFIX}"
                         fi
                         if [ -n "${ELF_DEBUG_ENABLE}" ]; then
-                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${BL32_BASENAME}${soc_suffix}.${TF_A_ELF_SUFFIX}" ]; then
-                                install -d "${DEPLOYDIR}/arm-trusted-firmware/bl32/debug"
-                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/${tfa_basename}-${BL32_BASENAME}${soc_suffix}.${TF_A_ELF_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl32/debug/${tfa_basename}-${BL32_BASENAME_DEPLOY}${soc_suffix}.${TF_A_ELF_SUFFIX}"
+                            install -d "${DEPLOYDIR}/arm-trusted-firmware/bl32/debug"
+                            if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" ]; then
+                                install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/bl32/debug/${tfa_basename}-${BL32_BASENAME_DEPLOY}${soc_suffix}-${config}.${TF_A_ELF_SUFFIX}"
                             fi
                         fi
-                    fi
-                    if [ -n "${ELF_DEBUG_ENABLE}" ]; then
-                        install -d "${DEPLOYDIR}/arm-trusted-firmware/debug"
-                        if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" ]; then
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL32_ELF}" "${DEPLOYDIR}/arm-trusted-firmware/debug/${tfa_basename}-${BL32_BASENAME_DEPLOY}-${config}.${TF_A_ELF_SUFFIX}"
-                        fi
-                    fi
-                    ;;
-                fwconfig)
-                    # Install fwconfig
-                    if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${FWCONFIG_NAME}.${DT_SUFFIX}" ]; then
+                        ;;
+                    fwconfig)
+                        # Install fwconfig
                         install -d "${DEPLOYDIR}/arm-trusted-firmware/fwconfig"
-                        install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${FWCONFIG_NAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/fwconfig/${dt}-${FWCONFIG_NAME}-${config}.${DT_SUFFIX}"
-                    fi
-                    ;;
+                        if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${FWCONFIG_NAME}.${DT_SUFFIX}" ]; then
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${FWCONFIG_NAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/fwconfig/${dt}-${FWCONFIG_NAME}-${config}.${DT_SUFFIX}"
+                        fi
+                        ;;
                 esac
             done # for file_type in ${tfa_file_type}
         done # for dt in ${dt_config}

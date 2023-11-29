@@ -5,13 +5,13 @@ SUMMARY = "Trusted Firmware-A for STM32MP1"
 LICENSE = "BSD-3-Clause"
 
 # Configure settings
-TFA_PLATFORM  ?= "stm32mp1"
-TFA_ARM_MAJOR ?= "7"
-TFA_ARM_ARCH  ?= "aarch32"
+TFA_PLATFORM  = "stm32mp1"
+TFA_ARM_MAJOR = "7"
+TFA_ARM_ARCH  = "aarch32"
 
-TFA_PLATFORM:aarch64  ?= "stm32mp2"
-TFA_ARM_MAJOR:aarch64 ?= "8"
-TFA_ARM_ARCH:aarch64  ?= "aarch64"
+TFA_PLATFORM:aarch64  = "stm32mp2"
+TFA_ARM_MAJOR:aarch64 = "8"
+TFA_ARM_ARCH:aarch64  = "aarch64"
 
 # Enable the wrapper for debug
 TF_A_ENABLE_DEBUG_WRAPPER ?= "1"

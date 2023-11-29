@@ -17,13 +17,15 @@ SRC_PATH ?= \$(PWD)
 BLD_PATH ?= \$(SRC_PATH)/../build
 DEPLOYDIR ?= \$(SRC_PATH)/../deploy
 
-BL32_DEPLOYDIR     ?= \$(DEPLOYDIR)/bl32
 BL31_DEPLOYDIR     ?= \$(DEPLOYDIR)/bl31
+BL32_DEPLOYDIR     ?= \$(DEPLOYDIR)/bl32
 FWCONFIG_DEPLOYDIR ?= \$(DEPLOYDIR)/fwconfig
 FWDDR_DEPLOYDIR    ?= \$(DEPLOYDIR)/ddr
 
 # Configure default TF-A features
+TF_A_ENABLE_BL31 ?= ${FIP_BL31_ENABLE}
 TF_A_ENABLE_DEBUG_WRAPPER ?= ${TF_A_ENABLE_DEBUG_WRAPPER}
+TF_A_ENABLE_FWDDR ?= "${TF_A_FWDDR}"
 
 # Set default TF-A config
 TF_A_CONFIG ?= ${TF_A_CONFIG}
@@ -47,7 +49,6 @@ TF_A_DEVICETREE_$config ?= $(echo ${TF_A_DEVICETREE} | cut -d',' -f${i})
 TF_A_EXTRA_OPTFLAGS_$config ?= $(echo ${TF_A_EXTRA_OPTFLAGS} | cut -d',' -f${i})
 TF_A_BINARY_$config ?= $(echo ${TF_A_BINARIES} | cut -d',' -f${i})
 TF_A_MAKE_TARGET_$config ?= $(echo ${TF_A_MAKE_TARGET} | cut -d',' -f${i})
-
 EOF
     done
     cat << EOF >> ${ARCHIVER_OUTDIR}/Makefile.sdk
@@ -63,7 +64,7 @@ AR =
 LD =
 NM =
 # Define default make options
-EXTRA_OEMAKE ?= ${EXTRA_OEMAKE}
+EXTRA_OEMAKE ?= $(echo "${EXTRA_OEMAKE}" |sed 's,TFA_EXTERNAL_DT='"${STAGING_EXTDT_DIR}"'/tf-a,TFA_EXTERNAL_DT=\$(EXTDT_DIR)/tf-a,')
 
 # Display TF-A config details
 define tf-configs
@@ -80,22 +81,27 @@ tf-\$(1)-\$(2): \$3
 	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
 		\$(if \$(findstring \$(2),\$(dt)), \\
 			\$(MAKE) \$(EXTRA_OEMAKE) -C \$(SRC_PATH) \\
-				BUILD_PLAT=\$(BLD_PATH)/\$(1)-\$(2) \\
+				BUILD_PLAT=\$(BLD_PATH)/\$(1)-\$(2)-\$(dt) \\
 				DTB_FILE_NAME=\$(dt).dtb \\
 				\$(if \$(TF_A_EXTRA_OPTFLAGS),\$(TF_A_EXTRA_OPTFLAGS),\$(TF_A_EXTRA_OPTFLAGS_\$(1))) \\
 				dtbs \\
-				\$(shell echo \$(2) | tr a-z A-Z)=1 ; \\
-			if [ -f "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.dtb" ]; then \\
-				fdtget -l "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.dtb" /soc | grep ddr | head -n 1 > \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_dtb_node.txt ; \\
-				(fdtget "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.dtb" /soc/\`cat \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_dtb_node.txt\` st,mem-name || echo "none" ) > \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; \\
-				sed -i -e 's|^none| STM32MP_DDR4_TYPE=1 |' -e 's|^\(.*DDR[0-9]\).*| STM32MP_\1_TYPE=1 |' \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; \\
-			else \\
-				touch \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; \\
+				\$(shell echo \$(2) | tr a-z A-Z)=1 || exit 1; \\
+			touch \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_property.txt ; \\
+			if [ "\$(TF_A_ENABLE_FWDDR)" = "1" ] ; then \\
+				if [ -f "\$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-bl2.dtb" ]; then \\
+					fdtget -l "\$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-bl2.dtb" /soc | grep ddr | head -n 1 > \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_dtb_node.txt ; \\
+					(fdtget "\$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-bl2.dtb" /soc/\`cat \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_dtb_node.txt\` st,mem-name) > \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_property.txt ; \\
+					sed -i -e 's|^\(.*DDR[0-9]\).*| STM32MP_\1_TYPE=1 |' \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_property.txt ; \\
+					sed -e 's|.*_\(.*DDR[0-9]\)_.*|\1|' \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_property.txt | tr A-Z a-z > \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_target.txt ; \\
+					if [ -f "\$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/\`cat \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_target.txt\`_pmu_train.bin" ]; then \\
+						cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/\`cat \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_target.txt\`_pmu_train.bin \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${FWDDR_NAME}-\$(dt).${FWDDR_SUFFIX} ; \\
+					fi ; \\
+				fi ; \\
 			fi ; \\
 			\$(MAKE) \$(EXTRA_OEMAKE) -C \$(SRC_PATH) \\
-				BUILD_PLAT=\$(BLD_PATH)/\$(1)-\$(2) \\
+				BUILD_PLAT=\$(BLD_PATH)/\$(1)-\$(2)-\$(dt) \\
 				DTB_FILE_NAME=\$(dt).dtb \\
-				\`cat \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt\` \\
+				\`cat \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(dt)-ddr_property.txt\` \\
 				\$(if \$(TF_A_EXTRA_OPTFLAGS),\$(TF_A_EXTRA_OPTFLAGS),\$(TF_A_EXTRA_OPTFLAGS_\$(1))) \\
 				\$(if \$(TF_A_MAKE_TARGET),\$(TF_A_MAKE_TARGET),\$(TF_A_MAKE_TARGET_\$(1))) \\
 				\$(shell echo \$(2) | tr a-z A-Z)=1 || exit 1; \\
@@ -108,78 +114,55 @@ define deploy-rules
 deploy-\$(1)-\$(2): tf-\$(1)-\$(2)
 	@mkdir -p \$(DEPLOYDIR)
 	@mkdir -p \$(DEPLOYDIR)/debug
-	@mkdir -p \$(FWDDR_DEPLOYDIR)
-	@if [ -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin ]; then \\
-		if [ ! -f \$(FWDDR_DEPLOYDIR)/lpddr4_pmu_train.bin ]; then \\
-			cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin \$(FWDDR_DEPLOYDIR)/lpddr4_pmu_train.bin ; \\
-		fi \\
-	fi
-	@if [ -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ]; then \\
-		if [ ! -f \$(FWDDR_DEPLOYDIR)/ddr3_pmu_train.bin ]; then \\
-			cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin \$(FWDDR_DEPLOYDIR)/ddr3_pmu_train.bin ; \\
-		fi \\
-	fi
-	@if [ -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ]; then \\
-		if [ ! -f \$(FWDDR_DEPLOYDIR)/ddr4_pmu_train.bin ]; then \\
-			cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin \$(FWDDR_DEPLOYDIR)/ddr4_pmu_train.bin ; \\
-		fi \\
-	fi
 	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
-		if [ -f "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.${DT_SUFFIX}" ]; then \\
-			fdtget -l "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.${DT_SUFFIX}" /soc | grep ddr | head -n 1 > \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_dtb_node.txt ; \\
-			(fdtget "\$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-bl2.${DT_SUFFIX}" /soc/\`cat \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_dtb_node.txt\` st,mem-name || echo "none" ) > \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; \\
-			if [ ! -f \$(FWDDR_DEPLOYDIR)/ddr_pmu-\$(dt).bin ]; then \\
-				if grep -q LPDDR4 \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; then \\
-					if [ -s \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin  ]; then \\
-						cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/lpddr4_pmu_train.bin \$(FWDDR_DEPLOYDIR)/ddr_pmu-\$(dt).bin ; \\
-					fi ; \\
-				elif grep -q DDR4 \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; then \\
-					if [ -s \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin ]; then \\
-						cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr4_pmu_train.bin \$(FWDDR_DEPLOYDIR)/ddr_pmu-\$(dt).bin ; \\
-					fi ; \\
-				elif grep -q DDR3 \$(BLD_PATH)/\$(1)-\$(2)/\$(dt)-ddr_property.txt ; then \\
-					if [ -s \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin ]; then \\
-						cp -f \$(SRC_PATH)/drivers/st/ddr/phy/firmware/bin/ddr3_pmu_train.bin \$(FWDDR_DEPLOYDIR)/ddr_pmu-\$(dt).bin ; \\
-					fi ; \\
-				else \\
-					echo "No DDR selected" ; \\
-				fi ; \\
-			fi ; \\
+		if [ -f "\$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${FWDDR_NAME}-\$(dt).${FWDDR_SUFFIX}" ]; then \\
+			mkdir -p \$(FWDDR_DEPLOYDIR) ; \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${FWDDR_NAME}-\$(dt).${FWDDR_SUFFIX} \$(FWDDR_DEPLOYDIR)/ ; \\
 		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/\$(3)-\$(dt).${TF_A_SUFFIX} ]; then \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/\$(3)-\$(dt).${TF_A_SUFFIX} \$(DEPLOYDIR)/\$(3)-\$(dt)-\$(1).${TF_A_SUFFIX} ; \\
+	)
+	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
+		if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(3)-\$(dt).${TF_A_SUFFIX} ]; then \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(3)-\$(dt).${TF_A_SUFFIX} \$(DEPLOYDIR)/\$(3)-\$(dt)-\$(1).${TF_A_SUFFIX} ; \\
 			if [ "\$(TF_A_ENABLE_DEBUG_WRAPPER)" = "1" ] ; then \\
-				stm32wrapper4dbg -s \$(BLD_PATH)/\$(1)-\$(2)/\$(3)-\$(dt).${TF_A_SUFFIX} -d \$(DEPLOYDIR)/debug/debug-\$(3)-\$(dt)-\$(1).${TF_A_SUFFIX} ; \\
+				stm32wrapper4dbg -s \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/\$(3)-\$(dt).${TF_A_SUFFIX} -d \$(DEPLOYDIR)/debug/debug-\$(3)-\$(dt)-\$(1).${TF_A_SUFFIX} ; \\
 			fi ; \\
 		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL31_BASENAME}.${BL31_SUFFIX} ] ; then \\
+	)
+	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
+		if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL31_BASENAME}.${BL31_SUFFIX} ] ; then \\
 			mkdir -p \$(BL31_DEPLOYDIR) ; \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/${BL31_BASENAME}.${BL31_SUFFIX} \$(BL31_DEPLOYDIR)/\$(1)-\$(2)-\$(dt)-\$(3)-${BL31_BASENAME}.${BL31_SUFFIX} ; \\
-			if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL31_ELF} ]; then \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL31_BASENAME}.${BL31_SUFFIX} \$(BL31_DEPLOYDIR)/\$(3)-${BL31_BASENAME}-\$(2)-\$(1).${BL31_SUFFIX} ; \\
+			if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${BL31_BASENAME}.${DT_SUFFIX} ]; then \\
+				cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${BL31_BASENAME}.${DT_SUFFIX} \$(BL31_DEPLOYDIR)/\$(dt)-${BL31_BASENAME}-\$(1).${DT_SUFFIX}; \\
+			fi ; \\
+			if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL31_ELF} ]; then \\
 				mkdir -p \$(BL31_DEPLOYDIR)/debug ; \\
-				mv -f \$(BLD_PATH)/\$(1)-\$(2)/${BL31_ELF} \$(BL31_DEPLOYDIR)/debug/\$(1)-\$(2)-\$(dt)-\$(3)-${BL31_BASENAME}.${TF_A_ELF_SUFFIX} ; \\
+				cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL31_ELF} \$(BL31_DEPLOYDIR)/debug/\$(3)-${BL31_BASENAME}-\$(2)-\$(1).${TF_A_ELF_SUFFIX} ; \\
 			fi ; \\
 		fi ; \\
+	)
+	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
 		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_BASENAME}.${BL32_SUFFIX} ] ; then \\
 			mkdir -p \$(BL32_DEPLOYDIR) ; \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_BASENAME}.${BL32_SUFFIX} \$(BL32_DEPLOYDIR)/\$(3)-${BL32_BASENAME}-\$(2).${BL32_SUFFIX} ; \\
-			if [ -f \$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-${BL32_BASENAME}.${DT_SUFFIX} ]; then \\
-				cp -f \$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-${BL32_BASENAME}.${DT_SUFFIX} \$(BL32_DEPLOYDIR)/ ; \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL32_BASENAME}.${BL32_SUFFIX} \$(BL32_DEPLOYDIR)/\$(3)-${BL32_BASENAME}-\$(2)-\$(1).${BL32_SUFFIX} ; \\
+			if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${BL32_BASENAME}.${DT_SUFFIX} ]; then \\
+				cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${BL32_BASENAME}.${DT_SUFFIX} \$(BL32_DEPLOYDIR)/\$(dt)-${BL32_BASENAME}-\$(1).${DT_SUFFIX} ; \\
 			fi ; \\
-			if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_ELF} ]; then \\
+			if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL32_ELF} ]; then \\
 				mkdir -p \$(BL32_DEPLOYDIR)/debug ; \\
-				mv -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_ELF} \$(BL32_DEPLOYDIR)/debug/\$(3)-${BL32_BASENAME}-\$(2).${TF_A_ELF_SUFFIX} ; \\
+				cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL32_ELF} \$(BL32_DEPLOYDIR)/debug/\$(3)-${BL32_BASENAME}-\$(2)-\$(1).${TF_A_ELF_SUFFIX} ; \\
 			fi ; \\
 		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-${FWCONFIG_NAME}.${DT_SUFFIX} ]; then \\
+	)
+	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
+		if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${FWCONFIG_NAME}.${DT_SUFFIX} ]; then \\
 			mkdir -p \$(FWCONFIG_DEPLOYDIR) ; \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/fdts/\$(dt)-${FWCONFIG_NAME}.${DT_SUFFIX} \$(FWCONFIG_DEPLOYDIR)/\$(dt)-${FWCONFIG_NAME}-\$(1).${DT_SUFFIX} ; \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/fdts/\$(dt)-${FWCONFIG_NAME}.${DT_SUFFIX} \$(FWCONFIG_DEPLOYDIR)/\$(dt)-${FWCONFIG_NAME}-\$(1).${DT_SUFFIX} ; \\
 		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL2_ELF} ] ; then \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/${BL2_ELF} \$(DEPLOYDIR)/debug/\$(2)-${BL2_BASENAME}-\$(1).${TF_A_ELF_SUFFIX} ; \\
-		fi ; \\
-		if [ -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_ELF} ] ; then \\
-			cp -f \$(BLD_PATH)/\$(1)-\$(2)/${BL32_ELF} \$(DEPLOYDIR)/debug/\$(2)-${BL32_BASENAME}-\$(1).${TF_A_ELF_SUFFIX} ; \\
+	)
+	@\$(foreach dt, \$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_\$(1))), \\
+		if [ -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL2_ELF} ] ; then \\
+			cp -f \$(BLD_PATH)/\$(1)-\$(2)-\$(dt)/${BL2_ELF} \$(DEPLOYDIR)/debug/\$(3)-${BL2_BASENAME}-\$(2)-\$(1).${TF_A_ELF_SUFFIX} ; \\
 		fi ; \\
 	)
 endef
@@ -206,7 +189,9 @@ help:
 	@echo "  TF_A_MAKE_TARGET"
 	@echo
 	@echo "TF-A features configuration:"
+	@echo "  TF_A_ENABLE_BL31 = \$(TF_A_ENABLE_BL31) ('1' to generate bl31 binary)"
 	@echo "  TF_A_ENABLE_DEBUG_WRAPPER = \$(TF_A_ENABLE_DEBUG_WRAPPER) ('1' to generate tf-a for debugging)"
+	@echo "  TF_A_ENABLE_FWDDR = \$(TF_A_ENABLE_FWDDR) ('1' to generate tf-a ddr firmware for fip ddr)"
 	@echo
 	@echo "TF-A folder configuration:"
 	@echo "  SRC_PATH  = \$(SRC_PATH)"
@@ -215,7 +200,7 @@ help:
 	@echo "  BL31_DEPLOYDIR     = \$(DEPLOYDIR)/bl31"
 	@echo "  BL32_DEPLOYDIR     = \$(DEPLOYDIR)/bl32"
 	@echo "  FWCONFIG_DEPLOYDIR = \$(DEPLOYDIR)/fwconfig"
-	@echo "  FWDDR_DEPLOYDIR    = \$(FWDDR_DEPLOYDIR)"
+	@echo "  FWDDR_DEPLOYDIR    = \$(DEPLOYDIR)/ddr"
 	@echo
 	@echo "FIP configuration:"
 	@echo "  Do not forget to set FIP deploydir folders (such as FIP_DEPLOYDIR_ROOT) to provide path to needed binaries"
@@ -248,11 +233,8 @@ host_tools:
 
 fip: \$(deploy-targets)
 	for config in \$(TF_A_CONFIG) ; do \\
-		if [ "\$\$config" = "trusted" ]; then \\
-			FIP_DEPLOYDIR_TFA=\$(BL32_DEPLOYDIR) FIP_DEPLOYDIR_FWCONF=\$(FWCONFIG_DEPLOYDIR) FIP_DEPLOYDIR_BL31=\$(BL31_DEPLOYDIR) FIP_DEPLOYDIR_FWDDR=\$(FWDDR_DEPLOYDIR) FIP_DEVICETREE="\$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_trusted))" FIP_CONFIG="trusted" FIP_BL32_CONF="tfa" fiptool-stm32mp ; \\
-		fi ; \\
 		if [ "\$\$config" = "optee" ]; then \\
-			FIP_DEPLOYDIR_TFA=\$(BL32_DEPLOYDIR) FIP_DEPLOYDIR_FWCONF=\$(FWCONFIG_DEPLOYDIR) FIP_DEPLOYDIR_BL31=\$(BL31_DEPLOYDIR) FIP_DEPLOYDIR_FWDDR=\$(FWDDR_DEPLOYDIR) FIP_DEVICETREE="\$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_optee))" FIP_CONFIG="optee" FIP_BL32_CONF="optee" fiptool-stm32mp ; \\
+			FIP_DEPLOYDIR_TFA=\$(BL32_DEPLOYDIR) FIP_DEPLOYDIR_BL31=\$(BL31_DEPLOYDIR) FIP_DEPLOYDIR_FWCONF=\$(FWCONFIG_DEPLOYDIR) FIP_DEPLOYDIR_FWDDR=\$(FWDDR_DEPLOYDIR) FIP_DEVICETREE="\$(if \$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE),\$(TF_A_DEVICETREE_optee))" FIP_CONFIG="optee" FIP_BL31_ENABLE="\$(TF_A_ENABLE_BL31)" FIP_BL32_CONF="optee" fiptool-stm32mp ; \\
 		fi ; \\
 	done
 
@@ -266,7 +248,7 @@ clean:
 	@for config in \$(TF_A_CONFIG) ; do \\
 		for soc in ${STM32MP_SOC_NAME}; do \\
 			echo "Removing \$(BLD_PATH)/\$\$config-\$\$soc ..." ; \\
-			rm -rf \$(BLD_PATH)/\$\$config-\$\$soc ; \\
+			rm -rf \$(BLD_PATH)/\$\$config-\$\$soc* ; \\
 		done ; \\
 	done
 	@echo "Removing \$(DEPLOYDIR) ..."

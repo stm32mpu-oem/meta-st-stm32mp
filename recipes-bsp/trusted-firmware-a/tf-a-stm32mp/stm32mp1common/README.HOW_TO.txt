@@ -21,9 +21,6 @@ If you have never configured you git configuration:
     $ git config --global user.name "your_name"
     $ git config --global user.email "your_email@example.com"
 
-External device tree is extracted. If this is not the case, please follow the
-README_HOW_TO.txt in ../external-dt.
-
 ---------------------------------------
 2. Initialize cross-compilation via SDK
 ---------------------------------------
@@ -41,7 +38,7 @@ sourced the sdk environment.
 3. Prepare TF-A source
 ----------------------
 If not already done, extract the sources from Developer Package tarball, for example:
-    $ tar xf en.SOURCES-stm32mp2-*.tar.xz
+    $ tar xf en.SOURCES-stm32mp1-*.tar.xz
 
 In the TF-A source directory (sources/*/##BP##-##PR##),
 you have one TF-A source tarball, the patches and one Makefile:
@@ -58,10 +55,6 @@ tarball now and apply the patch:
     $> tar xf ##BP##-##PR##.tar.xz
     $> cd ##BP##
     $> for p in `ls -1 ../*.patch`; do patch -p1 < $p; done
-
-For ddr configuration, you need to install the firmware on source code if
-it's present.
-    $> test -f ../tf-a-st-ddr.tar.gz && tar xf ../tf-a-st-ddr.tar.gz
 
 You can now move to section 5 [Compile TF-A source code].
 
@@ -87,11 +80,6 @@ have 3 solutions to use git:
     $ test -d .git || git init . && git add . && git commit -m "tf-a source code" && git gc
     $ git checkout -b WORKING
     $ for p in `ls -1 ../*.patch`; do git am $p; done
-For ddr configuration, you need to install the firmware on source code if
-it's present.
-    $ test -f ../tf-a-st-ddr.tar.xz && tar xf ../tf-a-st-ddr.tar.xz
-    $ git add drivers/st/ddr && git commit -m "add ddr firmware support"
-
 
 4.3 Get Git from Arm Software community and apply STMicroelectronics patches
 ---------------------------------------------------------------
@@ -103,11 +91,6 @@ it's present.
     $ cd arm-trusted-firmware
     $ git checkout -b WORKING ##ARCHIVER_COMMUNITY_REVISION##
     $ for p in `ls -1 <path to patch>/*.patch`; do git am $p; done
-For ddr configuration, you need to install the firmware on source code if
-it's present.
-    $ test -f ../tf-a-st-ddr.tar.xz && tar xf ../tf-a-st-ddr.tar.xz
-    $ git add drivers/st/ddr && git commit -m "add ddr firmware support"
-
 
 ---------------------------
 5. Compile TF-A source code
@@ -115,9 +98,6 @@ it's present.
 Since OpenSTLinux activates FIP by default, FIP_artifacts directory path must be specified before launching compilation
   - In case of using SOURCES-xxxx.tar.gz of Developer package the FIP_DEPLOYDIR_ROOT must be set as below:
     $> export FIP_DEPLOYDIR_ROOT=$PWD/../../FIP_artifacts
-To use the external device tree feature, EXTDT_DIR variable must be set to the root location of external DT
-as specified in the README.HOW_TO.txt of external-dt
-    $> export EXTDT_DIR=<external DT location>
 
 The build results for this component are available in DEPLOYDIR (Default: $PWD/../deploy).
 If needed, this deploy directory can be specified by adding "DEPLOYDIR=<your_deploy_dir_path>" compilation option to the build command line below.
@@ -128,7 +108,7 @@ To list TF-A source code compilation configurations:
 To compile TF-A source code:
     $ make -f $PWD/../Makefile.sdk all
 To compile TF-A source code for a specific config:
-    $ make -f $PWD/../Makefile.sdk TF_A_DEVICETREE=stm32mp257f-ev1 TF_A_CONFIG=optee ELF_DEBUG_ENABLE='1' all
+    $ make -f $PWD/../Makefile.sdk TF_A_DEVICETREE=stm32mp157c-ev1 TF_A_CONFIG=optee ELF_DEBUG_ENABLE='1' all
         NB: TF_A_DEVICETREE flag must be set to switch to correct board configuration.
 To compile TF-A source code and overwrite the default FIP artifacts with built artifacts:
     $> make -f $PWD/../Makefile.sdk DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware all
@@ -142,17 +122,17 @@ Please use STM32CubeProgrammer to update the boot partitions, find more informat
 7. Update Starter Package with TF-A compilation outputs
 ---------------------------
 If not already done, extract the artifacts from Starter Package tarball, for example:
-    # tar xf en.FLASH-stm32mp25-*.tar.xz
+    # tar xf en.FLASH-stm32mp1-*.tar.xz
 
 Move to Starter Package root folder,
     #> cd <your_starter_package_dir_path>
 Cleanup Starter Package from original TF-A artifacts first
-    #> rm -rf images/stm32mp25/arm-trusted-firmware/*
-    #> rm -rf images/stm32mp25/fip/*
+    #> rm -rf images/stm32mp1/arm-trusted-firmware/*
+    #> rm -rf images/stm32mp1/fip/*
 Update Starter Package with new FSBL binaries from <DEPLOYDIR> folder
-    #> DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware && cp -rvf $DEPLOYDIR/* images/stm32mp25/arm-trusted-firmware/
+    #> DEPLOYDIR=$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware && cp -rvf $DEPLOYDIR/* images/stm32mp1/arm-trusted-firmware/
         NB: if <DEPLOYDIR> has not been overide at compilation step, use default path: <tf-a source code folder>/../deploy
 Update Starter Package with new fip artifacts from <FIP_DEPLOYDIR_ROOT>/fip folder:
-    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp25/fip/
+    #> cp -rvf $FIP_DEPLOYDIR_ROOT/fip/* images/stm32mp1/fip/
 
 Then the new Starter Package is ready to use for "Image flashing" on board (more information on wiki website https://wiki.st.com/stm32mpu).
