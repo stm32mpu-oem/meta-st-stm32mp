@@ -158,12 +158,12 @@ do_deploy:append:class-target() {
             # Init FIP bl31 settings
             if [ "${FIP_BL31_ENABLE}" = "1" ]; then
                 # Check for files
-                [ -f "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}.${FIP_BL31_SUFFIX}" ] || bbfatal "Missing ${FIP_BL31}${soc_suffix}.${FIP_BL31_SUFFIX} file in folder: ${FIP_DEPLOYDIR_BL31}"
-                [ -f "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX}" ] || bbfatal "Missing ${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX} file in folder: ${FIP_DEPLOYDIR_BL31}"
+                [ -f "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}.${FIP_BL31_SUFFIX}" ] || bbfatal "Missing ${FIP_BL31}${soc_suffix}-${config}.${FIP_BL31_SUFFIX} file in folder: ${FIP_DEPLOYDIR_BL31}"
+                [ -f "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}.${FIP_BL31_DTB_SUFFIX}" ] || bbfatal "Missing ${dt}-${FIP_BL31_DTB}-${config}.${FIP_BL31_DTB_SUFFIX} file in folder: ${FIP_DEPLOYDIR_BL31}"
                 # Set CERT_BL31CONF
                 CERT_BL31CONF=" \
-                        --soc-fw ${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}.${FIP_BL31_SUFFIX} \
-                        --soc-fw-config ${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX} \
+                        --soc-fw ${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}.${FIP_BL31_SUFFIX} \
+                        --soc-fw-config ${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}.${FIP_BL31_DTB_SUFFIX} \
                         "
                 if [ "${ENCRYPT_ENABLE}" = "1" ]; then
                     encrypt_key="${ENCRYPT_FIP_KEY_PATH_LIST}"
@@ -178,23 +178,22 @@ do_deploy:append:class-target() {
 
                     # encrypt bl31 binary
                     bbnote "${ENCTOOL} --key ${encrypt_key} --nonce ${FIP_ENCRYPT_NONCE} --fw-enc-status 0 \
-                            --in \"${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}.${FIP_BL31_SUFFIX}\" \
-                            --out \"${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX}\" "
+                            --in \"${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}.${FIP_BL31_SUFFIX}\" \
+                            --out \"${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX}\" "
                     ${ENCTOOL} --key ${encrypt_key} --nonce ${FIP_ENCRYPT_NONCE} --fw-enc-status 0 \
-                            --in "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}.${FIP_BL31_SUFFIX}" \
-                            --out "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX}"
-                    # encrypt bl31 devicetree
+                            --in "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}.${FIP_BL31_SUFFIX}" \
+                            --out "${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX}"
                     bbnote "${ENCTOOL} --key ${encrypt_key} --nonce ${FIP_ENCRYPT_NONCE} --fw-enc-status 0 \
-                            --in \"${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX}\" \
-                            --out \"${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX} \" "
+                            --in \"${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}.${FIP_BL31_DTB_SUFFIX}\" \
+                            --out \"${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX} \" "
                     ${ENCTOOL} --key ${encrypt_key} --nonce ${FIP_ENCRYPT_NONCE} --fw-enc-status 0 \
-                            --in "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX}" \
-                            --out "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX}"
+                            --in "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}.${FIP_BL31_DTB_SUFFIX}" \
+                            --out "${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX}"
                 fi
                 # Set FIP_BL31CONF
                 FIP_BL31CONF="\
-                    --soc-fw ${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX} \
-                    --soc-fw-config ${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX} \
+                    --soc-fw ${FIP_DEPLOYDIR_BL31}/${FIP_BL31}${soc_suffix}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_SUFFIX} \
+                    --soc-fw-config ${FIP_DEPLOYDIR_BL31}/${dt}-${FIP_BL31_DTB}-${config}${FIP_ENCRYPT_SUFFIX}.${FIP_BL31_DTB_SUFFIX} \
                     "
               else
                 CERT_BL31CONF=""
@@ -499,12 +498,12 @@ for config in \$FIP_CONFIG; do
         # Init FIP bl31 settings
         if [ "\$FIP_BL31_ENABLE" = "1" ]; then
             # Check for files
-            [ -f "\$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}.${FIP_BL31_SUFFIX}" ] || bbfatal "Missing \$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}.${FIP_BL31_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_BL31' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl31'"
-            [ -f "\$FIP_DEPLOYDIR_BL31/\${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX}" ] || bbfatal "Missing \${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_BL31' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl31'"
+            [ -f "\$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}-\${config}.${FIP_BL31_SUFFIX}" ] || bbfatal "Missing \$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}-\${config}.${FIP_BL31_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_BL31' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl31'"
+            [ -f "\$FIP_DEPLOYDIR_BL31/\${dt}-${FIP_BL31_DTB}-\${config}.${FIP_BL31_DTB_SUFFIX}" ] || bbfatal "Missing \${dt}-${FIP_BL31_DTB}-\${config}.${FIP_BL31_DTB_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_BL31' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl31'"
             # Set FIP_BL31CONF
             FIP_BL31CONF="\\
-                --soc-fw \$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}.${FIP_BL31_SUFFIX} \\
-                --soc-fw-config \$FIP_DEPLOYDIR_BL31/\${dt}-${FIP_BL31_DTB}.${FIP_BL31_DTB_SUFFIX} \\
+                --soc-fw \$FIP_DEPLOYDIR_BL31/${FIP_BL31}\${soc_suffix}-\${config}.${FIP_BL31_SUFFIX} \\
+                --soc-fw-config \$FIP_DEPLOYDIR_BL31/\${dt}-${FIP_BL31_DTB}-\${config}.${FIP_BL31_DTB_SUFFIX} \\
                 "
         else
             FIP_BL31CONF=""
@@ -512,12 +511,12 @@ for config in \$FIP_CONFIG; do
         # Init FIP extra conf settings
         if [ "\${bl32_conf}" = "${FIP_CONFIG_FW_TFA}" ]; then
             # Check for files
-            [ -f "\$FIP_DEPLOYDIR_TFA/${FIP_TFA}\${soc_suffix}.${FIP_TFA_SUFFIX}" ] || bbfatal "Missing ${FIP_TFA}\${soc_suffix}.${FIP_TFA_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_TFA' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl32'"
-            [ -f "\$FIP_DEPLOYDIR_TFA/\${dt}-${FIP_TFA_DTB}.${FIP_TFA_DTB_SUFFIX}" ] || bbfatal "Missing \${dt}-${FIP_TFA_DTB}.${FIP_TFA_DTB_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_TFA' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl32'"
+            [ -f "\$FIP_DEPLOYDIR_TFA/${FIP_TFA}\${soc_suffix}-\${config}.${FIP_TFA_SUFFIX}" ] || bbfatal "Missing ${FIP_TFA}\${soc_suffix}-\${config}.${FIP_TFA_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_TFA' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl32'"
+            [ -f "\$FIP_DEPLOYDIR_TFA/\${dt}-${FIP_TFA_DTB}-\${config}.${FIP_TFA_DTB_SUFFIX}" ] || bbfatal "Missing \${dt}-${FIP_TFA_DTB}-\${config}.${FIP_TFA_DTB_SUFFIX} file in folder: '\\\$FIP_DEPLOYDIR_TFA' or '\\\$FIP_DEPLOYDIR_ROOT/arm-trusted-firmware/bl32'"
             # Set FIP_EXTRACONF
             FIP_EXTRACONF="\\
-                --tos-fw \$FIP_DEPLOYDIR_TFA/${FIP_TFA}\${soc_suffix}.${FIP_TFA_SUFFIX} \\
-                --tos-fw-config \$FIP_DEPLOYDIR_TFA/\${dt}-${FIP_TFA_DTB}.${FIP_TFA_DTB_SUFFIX} \\
+                --tos-fw \$FIP_DEPLOYDIR_TFA/${FIP_TFA}\${soc_suffix}-\${config}.${FIP_TFA_SUFFIX} \\
+                --tos-fw-config \$FIP_DEPLOYDIR_TFA/\${dt}-${FIP_TFA_DTB}-\${config}.${FIP_TFA_DTB_SUFFIX} \\
                 "
         elif [ "\${bl32_conf}" = "${FIP_CONFIG_FW_TEE}" ]; then
             # Check for files
@@ -534,6 +533,8 @@ for config in \$FIP_CONFIG; do
             bbfatal "Wrong configuration '\${bl32_conf}' found in FIP_CONFIG for \${config} config."
         fi
 
+        [ -d "\$FIP_DEPLOYDIR_FIP" ] || mkdir -p "\$FIP_DEPLOYDIR_FIP"
+
         # DRR FW
         if [ -f "\$FIP_DEPLOYDIR_FWDDR/${FIP_FW_DDR}-\${dt}.${FIP_FW_DDR_SUFFIX}" ]; then
             FIP_EXTRACONF="\$FIP_EXTRACONF --ddr-fw \$FIP_DEPLOYDIR_FWDDR/${FIP_FW_DDR}-\${dt}.${FIP_FW_DDR_SUFFIX} "
@@ -545,7 +546,6 @@ for config in \$FIP_CONFIG; do
 
         # Generate FIP binary
         echo "[${FIPTOOL}] Create ${FIP_BASENAME}-\${dt}-\${config}.${FIP_SUFFIX} fip binary into 'FIP_DEPLOYDIR_FIP' folder..."
-        [ -d "\$FIP_DEPLOYDIR_FIP" ] || mkdir -p "\$FIP_DEPLOYDIR_FIP"
         ${FIPTOOL} create \\
                         \$FIP_FWCONFIG \\
                         \$FIP_HWCONFIG \\

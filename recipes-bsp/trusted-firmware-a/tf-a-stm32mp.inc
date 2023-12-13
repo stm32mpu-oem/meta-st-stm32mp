@@ -541,11 +541,11 @@ do_deploy() {
                         install -d "${DEPLOYDIR}/arm-trusted-firmware/bl31"
                         # Install BL31 binary
                         if [ -f "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" ]; then
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}.${BL31_SUFFIX}"
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/${BL31_BASENAME}.${BL31_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${tfa_basename}-${BL31_BASENAME_DEPLOY}${soc_suffix}-${config}.${BL31_SUFFIX}"
                         fi
                         # Install BL31 devicetree
                         if [ -f "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL31_BASENAME}.${DT_SUFFIX}" ]; then
-                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL31_BASENAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${dt}-${BL31_BASENAME}.${DT_SUFFIX}"
+                            install -m 644 "${B}/${config}${soc_suffix}-${dt}/fdts/${dt}-${BL31_BASENAME}.${DT_SUFFIX}" "${DEPLOYDIR}/arm-trusted-firmware/bl31/${dt}-${BL31_BASENAME}-${config}.${DT_SUFFIX}"
                         fi
                         if [ -n "${ELF_DEBUG_ENABLE}" ]; then
                             install -d "${DEPLOYDIR}/arm-trusted-firmware/bl31/debug"
