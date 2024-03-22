@@ -7,7 +7,7 @@ inherit external-dt
 # Do not remove source code, even if rm_work is configured
 RM_WORK_EXCLUDE += "${PN}"
 
-SRC_URI = "git://github.com/PRG-MPU-ALPHA/dt-stm32mp.git;protocol=https;branch=main"
+SRC_URI = "git://github.com/stm32mpu-oem/dt-stm32mp.git;protocol=https;branch=main"
 SRCREV = "58f961d9d6a85cd2c7a3971f063faf1f94e29e32"
 
 S = "${WORKDIR}/git"

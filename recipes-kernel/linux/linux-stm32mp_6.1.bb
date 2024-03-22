@@ -37,7 +37,7 @@ S = "${WORKDIR}/${LINUX_TARBASE}"
 # ---------------------------------
 BBCLASSEXTEND = "devupstream:target"
 
-SRC_URI:class-devupstream = "git://github.com/PRG-MPU-ALPHA/linux.git;protocol=https;branch=v6.1-stm32mp25-beta-dev"
+SRC_URI:class-devupstream = "git://github.com/stm32mpu-oem/linux.git;protocol=https;branch=v6.1-stm32mp25-beta-dev"
 SRCREV:class-devupstream = "da578596c3a9a31092b032e31961ad799b38b2d1"
 PV:class-devupstream = "${LINUX_VERSION}${LINUX_SUBVERSION}-${LINUX_TARGET}-${LINUX_RELEASE}+${SRCPV}"
 # ---------------------------------

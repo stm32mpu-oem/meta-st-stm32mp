@@ -4,7 +4,7 @@ LIC_FILES_CHKSUM = "file://License.md;md5=69a1c7467bd46258aa1b1b534832ed7d"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-SRC_URI = "git://github.com/PRG-MPU-ALPHA/STM32CubeMP2.git;protocol=https;branch=main"
+SRC_URI = "git://github.com/stm32mpu-oem/STM32CubeMP2.git;protocol=https;branch=main"
 SRCREV  = "36ec6fc191fc4d9eef755224f7db60dff6788154"
 
 SRC_URI += " \

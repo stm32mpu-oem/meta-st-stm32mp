@@ -9,7 +9,7 @@ LIC_FILES_CHKSUM:stm32mp1common = "file://${GCNANO_TAR_FILENAME}/LICENSE;md5=0e8
 SRC_URI:stm32mp1common = "git://github.com/STMicroelectronics/gcnano-binaries;protocol=https;branch=gcnano-6.4.13-binaries"
 SRCREV:stm32mp1common = "5d02efd5cb4cfa85307633891f3cf87550a8bc1d"
 
-SRC_URI:stm32mp2common = "git://github.com/PRG-MPU-ALPHA/gcnano-binaries;protocol=https;branch=main"
+SRC_URI:stm32mp2common = "git://github.com/stm32mpu-oem/gcnano-binaries;protocol=https;branch=main"
 SRCREV:stm32mp2common = "548f9bf0a6388b9b44658aa77270b1e56d7c1381"
 
 PV = "${GCNANO_VERSION}+${GCNANO_DATE}"

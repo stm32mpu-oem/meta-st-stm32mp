@@ -137,7 +137,7 @@ This LLA is governed by the laws of Switzerland, without regard to its conflict 
 ################################################
 ANNEX 1: LIST OF SOFTWARE COMPONENTS (AND ASSOCIATED LICENSES) IN THE LICENSED MATERIALS
 ################################################
-https://github.com/PRG-MPU-ALPHA/oe-manifest/wiki/OpenSTLinux-licenses
+https://github.com/stm32mpu-oem/oe-manifest/wiki/OpenSTLinux-licenses
 
 ##################
 ANNEX 2: Vivante libraries OpenGL ES, OpenVG, EGL (multi backend), OpenCL, OpenVX and Vulkan 

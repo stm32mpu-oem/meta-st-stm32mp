@@ -51,7 +51,7 @@ S = "${WORKDIR}/git"
 # ---------------------------------
 BBCLASSEXTEND = "devupstream:target"
 
-SRC_URI:class-devupstream = "git://github.com/PRG-MPU-ALPHA/u-boot.git;protocol=https;branch=v2022.10-stm32mp25-beta"
+SRC_URI:class-devupstream = "git://github.com/stm32mpu-oem/u-boot.git;protocol=https;branch=v2022.10-stm32mp25-beta"
 SRCREV:class-devupstream = "41c24dbdcf9427fd3b35fd1385c411bfd4a0a2b7"
 
 # ---------------------------------

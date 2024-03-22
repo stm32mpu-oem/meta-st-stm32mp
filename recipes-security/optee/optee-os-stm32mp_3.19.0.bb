@@ -54,7 +54,7 @@ include ${@oe.utils.ifelse(d.getVar('ST_ARCHIVER_ENABLE') == '1', 'optee-os-stm3
 # ---------------------------------
 BBCLASSEXTEND = "devupstream:target"
 
-SRC_URI:class-devupstream = "git://github.com/PRG-MPU-ALPHA/optee_os.git;protocol=https;branch=3.19.0-stm32mp25-beta-dev"
+SRC_URI:class-devupstream = "git://github.com/stm32mpu-oem/optee_os.git;protocol=https;branch=3.19.0-stm32mp25-beta-dev"
 SRCREV:class-devupstream = "e6c4c1ca71e7b0e38ac37a5b4ae5855772b2506b"
 
 # ---------------------------------
